@@ -9,4 +9,10 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
-local tap = require("tap")
+
+require("tap")(function (test)
+	test("first",function()
+		assert(true,"true should always be true")
+		assert(false,"false in never true")
+		end)
+end)

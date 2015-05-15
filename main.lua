@@ -8,31 +8,23 @@
 -- @end
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
-local luvi = require('luvi')
-luvi.bundle.register('require', "deps/require.lua")
-local require = require('require')("bundle:main.lua")
+local logger = require('logger')
+local os = require('os')
 
--- Create a luvit powered main that does the luvit CLI interface
-return require('luvit')(function (...)
-
-	local logger = require('logger')
-	local os = require('os')
-
-	function main()
-		if process.argv[1] == '-server' then
-			logger:add_logger('info','console',function(...) p(os.date("%x %X"),...) end)
-			logger:info("starting server")
-			if #process.argv == 3 then
-				table.remove(process.argv,1)
-				require('./lib/server')
-			else
-				logger:info("Usage: tag -server (-config-file|-config-json) {path|json}")
-			end
+function main()
+	if process.argv[1] == '-server' then
+		logger:add_logger('info','console',function(...) p(os.date("%x %X"),...) end)
+		logger:info("starting server")
+		if #process.argv == 3 then
+			table.remove(process.argv,1)
+			require('./lib/server')
 		else
-			logger:add_logger('info','console',function(...) p(...) end)
-			logger:debug("entering cli mode")
-			require('./lib/cli')
+			logger:info("Usage: tag -server (-config-file|-config-json) {path|json}")
 		end
+	else
+		logger:add_logger('info','console',function(...) p(...) end)
+		logger:debug("entering cli mode")
+		require('./lib/cli')
 	end
-	main()
-end)
+end
+main()

@@ -18,11 +18,11 @@ return
   ,license = "MIT"
   ,homepage = "https://github.com/pagodabox/tag"
   ,dependencies = 
-    {"luvit/tap@0.1.0-1"}
+    {"luvit/tap@0.1.0-1"
+    ,"luvit/require@1.2.0"}
   ,files =
     {"**.lua"
     ,"**.txt"
     ,"**.so"
     ,"!examples"
-    ,"!tests"
-    ,"!.DS_Store"}}
+    ,"!tests"}}
