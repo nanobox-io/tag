@@ -30,7 +30,7 @@ do
 	-- next level
 	local gen_level = function(index)
 		return function(...)
-			for i = index, #levels do
+			for i = index, 1, -1 do
 				local level = levels[i]
 				for _idx, listener in pairs(loggers[level]) do
 					listener(level, ...)
