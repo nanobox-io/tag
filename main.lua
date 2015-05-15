@@ -26,7 +26,7 @@ return require('luvit')(function (...)
 				table.remove(process.argv,1)
 				require('./lib/server')
 			else
-				logger:info("Usage: flip -server (-config-file|-config-json) {path|json}")
+				logger:info("Usage: tag -server (-config-file|-config-json) {path|json}")
 			end
 		else
 			logger:add_logger('info','console',function(...) p(...) end)
