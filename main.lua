@@ -12,18 +12,14 @@ local logger = require('logger')
 local os = require('os')
 
 function main()
-	if process.argv[1] == '-server' then
-		logger:add_logger('info','console',function(...) p(os.date("%x %X"),...) end)
-		logger:info("starting server")
-		if #process.argv == 3 then
-			table.remove(process.argv,1)
-			require('./lib/server')
-		else
-			logger:info("Usage: tag -server (-config-file|-config-json) {path|json}")
-		end
+	if args[1] == '-server' then
+		logger.add_logger('debug','console',function(...) p(os.date("%x %X"),...) end)
+		logger.info("starting server")
+		table.remove(args,1)
+		require('./lib/server')
 	else
-		logger:add_logger('info','console',function(...) p(...) end)
-		logger:debug("entering cli mode")
+		logger.add_logger('debug','console',function(...) p(...) end)
+		logger.debug("entering cli mode")
 		require('./lib/cli')
 	end
 end
