@@ -8,21 +8,22 @@
 -- @end
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
-return {
-  name = "pagodabox/tag",
-  version = "0.0.1",
-  author = "daniel@pagodabox.com",
-  dependencies = 
+return
+  {name = "pagodabox/tag"
+  ,version = "0.0.1"
+  ,author =
+  	{name = "Daniel Barney"
+  	,email = "daniel@pagodabox.com"}
+  ,tags = {"failover","vip"}
+	,license = "MIT"
+	,homepage = "https://github.com/pagodabox/tag"
+  ,dependencies = 
   	{"luvit/luvit@2.1.10"
-  	,"luvit/tap@0.1.0-1"},
-  files = {
-    "**.lua",
-    "**.txt",
-    "**.so",
-    "!examples",
-    "!tests",
-    "!.DS_Store"
-  }
-}
-
-
+  	,"luvit/tap@0.1.0-1"}
+  ,files =
+    {"**.lua"
+    ,"**.txt"
+    ,"**.so"
+    ,"!examples"
+    ,"!tests"
+    ,"!.DS_Store"}}
