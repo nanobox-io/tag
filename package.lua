@@ -18,8 +18,7 @@ return
   ,license = "MIT"
   ,homepage = "https://github.com/pagodabox/tag"
   ,dependencies = 
-    {"luvit/luvit@2.1.10"
-    ,"luvit/tap@0.1.0-1"}
+    {"luvit/tap@0.1.0-1"}
   ,files =
     {"**.lua"
     ,"**.txt"
