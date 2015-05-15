@@ -12,18 +12,17 @@ return
   {name = "pagodabox/tag"
   ,version = "0.0.1"
   ,author =
-  	{name = "Daniel Barney"
-  	,email = "daniel@pagodabox.com"}
+    {name = "Daniel Barney"
+    ,email = "daniel@pagodabox.com"}
   ,tags = {"failover","vip"}
-	,license = "MIT"
-	,homepage = "https://github.com/pagodabox/tag"
+  ,license = "MIT"
+  ,homepage = "https://github.com/pagodabox/tag"
   ,dependencies = 
-  	{"luvit/luvit@2.1.10"
-  	,"luvit/tap@0.1.0-1"}
+    {"luvit/tap@0.1.0-1"
+    ,"luvit/require@1.2.0"}
   ,files =
     {"**.lua"
     ,"**.txt"
     ,"**.so"
     ,"!examples"
-    ,"!tests"
-    ,"!.DS_Store"}}
+    ,"!tests"}}
