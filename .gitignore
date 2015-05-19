@@ -1,3 +1,4 @@
 deps
 !deps/logger.lua
-!deps/actor
+!deps/lmmdb.lua
+!deps/cauterize

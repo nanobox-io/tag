@@ -8,3 +8,11 @@
 -- @end
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
+
+return
+	{Supervisor = require('./supervisor')
+	,Fsm = require('./fsm')
+	,Server = require('./server')
+	,Proc = require('./proc')
+	,Process = require('./lib/process')
+	,Reactor = require('./lib/reactor')}
