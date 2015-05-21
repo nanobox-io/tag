@@ -1,2 +1,4 @@
 deps
 !deps/logger.lua
+!deps/lmmdb.lua
+!deps/cauterize

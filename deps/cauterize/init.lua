@@ -8,19 +8,11 @@
 -- @end
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
-local logger = require('logger')
-local os = require('os')
 
-function main()
-	if args[1] == '-server' then
-		logger.add_logger('debug','console',function(...) p(os.date("%x %X"),...) end)
-		logger.info("starting server")
-		table.remove(args,1)
-		require('./lib/server')
-	else
-		logger.add_logger('debug','console',function(...) p(...) end)
-		logger.debug("entering cli mode")
-		require('./lib/cli')
-	end
-end
-main()
+return
+	{Supervisor = require('./tree/supervisor')
+	,Fsm = require('./tree/fsm')
+	,Server = require('./tree/server')
+	,Proc = require('./tree/proc')
+	,Process = require('./lib/process')
+	,Reactor = require('./lib/reactor')}
