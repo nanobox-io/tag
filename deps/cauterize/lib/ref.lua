@@ -19,4 +19,8 @@ function Ref.make()
 	return ref
 end
 
+function Ref.reset()
+	ref = 0
+end
+
 return Ref

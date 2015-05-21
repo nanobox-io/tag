@@ -17,7 +17,7 @@ require('tap')(function (test)
 		local proc = 
 			{_links = {}
 			,_pid = Pid.next()
-			,mailbox = Mailbox:new()
+			,_mailbox = Mailbox:new()
 			,_inverse_links = {}}
 		Pid.enter(proc._pid,proc)
 		return proc
@@ -28,24 +28,24 @@ require('tap')(function (test)
 
 	test("can monitor another process",function()
 		Link.monitor(proc1._pid,proc2._pid)
-		assert(#proc2.mailbox._box == 0,"there was a message already")
+		assert(#proc2._mailbox._box == 0,"there was a message already")
 		Link.clean(proc1._pid)
-		assert(#proc2.mailbox._box == 1,"link message did not arrive")
+		assert(#proc2._mailbox._box == 1,"link message did not arrive")
 
 	end)
 
 	test("if the linked process is dead the message is immediately sent",function()
-		assert(#proc1.mailbox._box == 0,"there was a message already")
+		assert(#proc1._mailbox._box == 0,"there was a message already")
 		Link.monitor(proc3._pid + 1,proc1._pid)
-		assert(#proc1.mailbox._box == 1,"link message did not arrive")
+		assert(#proc1._mailbox._box == 1,"link message did not arrive")
 
 	end)
 
 	test("we can link and unlink without the message being sent",function()
-		assert(#proc3.mailbox._box == 0,"there was a message already")
+		assert(#proc3._mailbox._box == 0,"there was a message already")
 		local ref = Link.monitor(proc1._pid,proc3._pid)
 		Link.unmonitor(proc3._pid,ref)
-		assert(#proc3.mailbox._box == 0,"link message should not have been delivered")
+		assert(#proc3._mailbox._box == 0,"link message should not have been delivered")
 
 	end)
 end)

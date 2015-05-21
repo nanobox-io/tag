@@ -8,27 +8,28 @@
 -- @end
 -- Created :  19 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
+local Ref = require('./ref')
 local hrtime = require('uv').hrtime
-local RunQueue = require('./run_queue')
 local Object = require('core').Object
 local Mailbox = Object:extend()
 
 
 function Mailbox:initialize()
 	self._selective = nil -- matches for a selective revc
+	self._mailbox_searched = false -- flag for searching the mailbox
 	self._box = {}
 end
 
-local function message_match(patterns,message)
+local function message_match(patterns,flag)
 	for _,tag in pairs(patterns) do
-		if tag == message[1] then
+		if tag == flag then
 			return true
 		end
 	end
 	return false
 end
 
-function Mailbox:match(message)
+function Mailbox:match(flag)
 	-- this could be set by an insertion
 	if self._match then
 		assert(self._selective ~= nil,"impossible match found")
@@ -36,18 +37,11 @@ function Mailbox:match(message)
 	end
 
 	if self._selective ~= nil then
-
-		if message then
-			-- if we are comparing one message
-			if message_match(self._selective,message) then
-				return true
-			else
-				return false
-			end
-		else
-			-- if we are searching the mailbox
+		-- search the mailbox if we havne't yet.
+		if not self._mailbox_searched then
+			self._mailbox_searched = true
 			for idx,message in pairs(self._box) do
-				if message_match(self._selective,message) then
+				if message_match(self._selective,message[1]) then
 					-- store off the match that was found so that we don't have
 					-- to search the mailbox again
 					table.remove(self._box,idx)
@@ -55,12 +49,18 @@ function Mailbox:match(message)
 					return true
 				end
 			end
+		end
+
+		-- otherwise check this message
+		if message_match(self._selective,flag) then
+			return true
+		else
 			return false
 		end
 	end
 	-- if we are not doing a selective recv, then everything matches.
 	-- but only if there is a message
-	return message ~= nil or #self._box > 0 
+	return flag ~= nil or #self._box > 0 
 end
 
 function Mailbox:get_message(message)
@@ -70,7 +70,7 @@ function Mailbox:get_message(message)
 
 	if not match then
 		-- return the first message, no match was found
-		return table.remove(self._box,1)
+		match = table.remove(self._box,1)
 	end
 	return match
 end
@@ -88,7 +88,8 @@ function Mailbox:recv(tags,timeout)
 	end
 
 	-- if we are going to timeout, lets wait for a timeout message
-	if timeout and tags then
+	if timeout then
+		if not tags then tags = {} end
 		-- we need a ref so that no one else can inturupt this timeout
 		ref = Ref.make()
 		tags[#tags + 1] = ref
@@ -96,31 +97,42 @@ function Mailbox:recv(tags,timeout)
 
 	-- store off the tags so that we can access them later
 	self._selective = tags
+	self._mailbox_searched = false
 
-	-- wait for a message if we need one
-	local wait = false
-	while not self:match() and (timeout == nil or timeout > 0) do
-		wait = true
-		-- inform the reactor why we are waiting
-		coroutine.yield("timeout",{timeout,ref})
-	end
-	if not wait then
-		-- let other processes run
-		coroutine.yield("timeout")
-	end
+	-- wait for a message to match, if we are matching, or just wait for
+	-- a message, or for the timeout (which is also a message)
+	repeat
+		if timeout or ref then
+			-- we are waiting on a match, which may or may not time out
+			self:yield("timeout",{timeout,ref})
+		elseif #self._box > 0 then
+			-- we have the message, but lets let others run
+			self.yield("yield")
+		else
+			-- we don't have anything in our mailbox, lets wait for it to
+			-- arrive
+			self:yield("pause")
+		end
+	until self:match()
 	
 	-- clear out the _selective, we don't need it anymore
 	self._selective = nil
+	self._mailbox_searched = false
 
-	-- get the message that matched the pattern
-	return self:get_message()
+	if not (timeout and (tags ~= nil and #tags == 1)) then
+		-- get the message that matched the pattern
+		return self:get_message()
+	else
+		return nil
+	end
 end
 
 
 -- insert a message into the mailbox. returns if the message matches
 -- any of the patterns that are set
-function Mailbox:insert(msg)
-	if not self._match and self:match(msg) then
+function Mailbox:insert(...)
+	local msg = {...}
+	if not self._match and self:match(msg[1]) then
 		-- only record the msg if we are doing a selective recv
 		if self._selective ~= nil then
 			self._match = msg
@@ -135,6 +147,13 @@ function Mailbox:insert(msg)
 	-- we need to insert the message into the mailbox
 	self._box[#self._box + 1] = msg
 	return false
+end
+
+function Mailbox:yield(...)
+	local res,err = coroutine.yield(...)
+	if res == 'exit' then
+		error(err)
+	end
 end
 
 return Mailbox

@@ -14,11 +14,12 @@ local Pid = require('./pid')
 local Link = {}
 
 -- sends the result of a link or monitor to the registered process
+-- how does this requeue processes?
 local function send_message(to,ref,kind,reason)
 	if kind == "monitor" then
-		to.mailbox:insert({'down',ref,pid,reason})
+		to._mailbox:insert(ref,'down',reason)
 	elseif kind == "link" then
-		to.mailbox:insert({'$exit',ref,pid,reason})
+		to._mailbox:insert(ref,'$exit',reason)
 	else
 		error("unknown link type "..kind)
 	end
@@ -64,8 +65,10 @@ function Link.unlink(to,ref)
 	if to_p then
 		local from = to_p._inverse_links[ref]
 		local from_p = Pid.lookup(from)
-		assert(from_p._links[ref],"link was not set")
-		from_p._links[ref] = nil
+		if from_p then
+			assert(from_p._links[ref],"link was not set")
+			from_p._links[ref] = nil
+		end
 		to_p._inverse_links[ref] = nil
 	else
 		error('unable to unlink from dead process')
@@ -80,18 +83,22 @@ Link.unmonitor = Link.unlink
 -- messages.
 function Link.clean(pid,reason)
 	local process = Pid.lookup(pid)
+	local sent = {}
 	for ref,to in pairs(process._links) do
 		local to_p = Pid.lookup(to[2])
 		if to_p then
 			send_message(to_p,ref,to[1],process._crash_message)
+			sent[#sent + 1] = to_p
 		end
 	end
 	for ref,from in pairs(process._inverse_links) do
-		local from_p = Pid.lookup(from[2])
+		local from_p = Pid.lookup(from)
 		if from_p then
 			from_p._links[ref] = nil
 		end
 	end
+	-- return the list of pids that were sent to
+	return sent
 end
 
 return Link

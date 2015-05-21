@@ -12,7 +12,7 @@
 local Object = require('core').Object
 local Pid = require('./pid')
 local Link = require('./link')
--- local Mailbox = require('./mailbox')
+local Mailbox = require('./mailbox')
 local Name = require('./name')
 local Ref = require('./ref')
 local Reactor = require('./reactor')
@@ -23,7 +23,7 @@ local Process = Object:extend()
 -- we only want to return a pid when we create a new process
 function Process:new(...)
 	local pid = Object.new(self,...)
-	return pid._pid
+	return pid._pid,pid._parent_link
 end
 
 function Process:initialize(start,opts)
@@ -54,15 +54,23 @@ function Process:initialize(start,opts)
 
 	-- Nothing should fail from here on out.
 
-	-- create a new mailbox
-	self._mailbox = require('./mailbox'):new()
+	-- create a new mailbox, for some reason require doesn't work.
+	-- probably because of require dependancies.
+	self._mailbox = Mailbox:new()
+	self._names = {}
+	self._links = {}
+	self._inverse_links = {}
 
 	-- create the coroutine that is the process
+	local process = self
 	if type(start) == 'function' then
-		self._routine = coroutine.create(start)
+		self._routine = coroutine.create(function()
+			-- we do this to preserve send,recv,exit functions.
+			start(process,unpack(opts.args))
+		end)
 	else
 		self._routine = coroutine.create(function()
-			self[start](unpack(opts.args))
+			self[start](self,unpack(opts.args))
 		end)
 	end
 
@@ -74,8 +82,8 @@ function Process:initialize(start,opts)
 	Pid.enter(self._pid,self)
 
 	-- link the new process to the current process
-	if opts.link and Reactor.current_pid then
-		Link.link(self._pid,Reactor.current_pid)
+	if opts.link and Reactor.current() then
+		self._parent_link = Link.link(self._pid,Reactor.current())
 	end
 
 	-- set up the name for this process
@@ -85,26 +93,86 @@ function Process:initialize(start,opts)
 
 	-- should the next two really happen here?
 	-- or should it be somewhere else?
-
 	-- we add the pid to the run_queue
 	RunQueue:enter(self)
 
 	-- and we pause this pid if we need to.
 	local current = Reactor.current()
 	if current ~= nil then
-		pids[current]:check_suspend()
+		self:yield()
 	end
 end
 
 function Process:destroy()
 	local pid = self._pid
 	Name.clean(pid)
-	Link.clean(pid,self._crash_reason)
+	local sent = Link.clean(pid,self._crash_reason)
 	Pid.remove(pid)
+
+	-- we need to get this working correctly.
+	if self._pid == Reactor.current() then
+		self:exit()
+	end
+
+	return sent
 end
 
-function Process:exit()
-	error('exit')
+function Process:exit(pid,err)
+	if not err and pid then 
+		err = pid
+		pid = nil
+	end
+	if not err then err = 'exit' end
+
+	local current = Reactor.current()
+	if current == nil then
+		self._crash_reason = err
+		-- and now I need to end the coroutine
+		coroutine.resume(self._routine,err)
+	elseif pid == nil or pid == current then
+		error(err)
+	else
+		-- I need to terminate a different process
+		self:send(pid,'$exit')
+	end
+end
+
+-- send a message to a process after time has passed
+function Process:send_after(pid,time,...)
+	if type(time) ~= "number" then
+		error("invalid interval")
+	end
+
+	-- string could be a registered name
+	if type(pid) ~= "number" and type(pid) ~= 'string' then
+		error('invalid pid')
+	end
+	
+	-- I still need to check if the msg being sent is nil
+
+	if self and self._mailbox then 
+		self._mailbox:yield("send",{pid,time,...})
+	elseif Reactor.current() then
+		Pid.lookup(Reactor.current())._mailbox:yield("send",{pid,time,...})
+	end
+end
+
+-- send a message to a process
+function Process:send(pid,...)
+	self:send_after(pid,0,...)
+end
+
+-- receive a message from the mailbox
+function Process:recv(...)
+	return self._mailbox:recv(...)
+end
+
+function Process:yield()
+	self._mailbox:yield()
+end
+
+function Process:current()
+	return Reactor.current()
 end
 
 return Process

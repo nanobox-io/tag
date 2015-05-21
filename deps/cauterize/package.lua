@@ -9,16 +9,16 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 return
-  {name = "pagodabox/actor"
+  {name = "pagodabox/cauterize"
   ,version = "0.1.0"
   ,author =
     {name = "Daniel Barney"
     ,email = "daniel@pagodabox.com"}
-  ,tags = {"actor","coroutine","syncronous"}
+  ,tags = {"actor","coroutine","syncronous","tree"}
   ,license = "MIT"
   ,homepage =
-    "https://github.com/pagodabox/tag/blob/master/deps/actor"
-  ,description = "Actor like behaviour for lua corotines"
+    "https://github.com/pagodabox/tag/blob/master/deps/cauterize"
+  ,description = "Cauterize your evented code to stop callback hell"
   ,dependencies = 
     {"luvit/tap@0.1.0-1"
     ,"luvit/require@1.2.0"

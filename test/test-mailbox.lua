@@ -25,13 +25,13 @@ require('tap')(function (test)
 		coroutine.resume(thread)
 
 		for _,msg in pairs({{'asdf'},{'qwerty'},{'test'}}) do
-			mailbox:insert(msg)
+			mailbox:insert(unpack(msg))
 			alive,err = coroutine.resume(thread)
 			assert(alive or not err,err)
 		end
 
-		mailbox:insert({'other'})
-		mailbox:insert({'test'})
+		mailbox:insert('other')
+		mailbox:insert('test')
 
 		repeat
 			alive,err = coroutine.resume(thread)

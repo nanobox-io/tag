@@ -47,10 +47,14 @@ end
 function Name.clean(pid)
 	local process = Pid.lookup(pid)
 	if process then
-		for name,_ in process._names do
+		for name,_ in pairs(process._names) do
 			registered[name] = nil
 		end
 	end
+end
+
+function Name.empty()
+	registered = {}
 end
 
 return Name

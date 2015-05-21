@@ -10,9 +10,9 @@
 ----------------------------------------------------------------------
 
 return
-	{Supervisor = require('./supervisor')
-	,Fsm = require('./fsm')
-	,Server = require('./server')
-	,Proc = require('./proc')
+	{Supervisor = require('./tree/supervisor')
+	,Fsm = require('./tree/fsm')
+	,Server = require('./tree/server')
+	,Proc = require('./tree/proc')
 	,Process = require('./lib/process')
 	,Reactor = require('./lib/reactor')}

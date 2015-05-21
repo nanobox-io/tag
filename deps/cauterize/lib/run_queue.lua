@@ -20,8 +20,11 @@ end
 -- add a process to the queue to that it will be processed
 function RunQueue:enter(process)
 	if not process._enqueued then
+		if process._timer then
+			error('unable to enqueue process with an active timer')
+		end
 		process._enqueued = true
-		self.queue[#self.queue] = process
+		self.queue[#self.queue + 1] = process
 	else
 		-- maybe move it up the list?
 	end
@@ -41,8 +44,9 @@ function RunQueue:can_work()
 	return #self.queue > 0
 end
 
-function RunQueue:yeild()
-	-- if we are in a process, and it needs to suspend, lets suspend it
+-- clear everything out of the queue
+function RunQueue:empty()
+	self.queue = {}
 end
 
 return RunQueue:new()

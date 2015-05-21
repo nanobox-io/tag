@@ -22,7 +22,7 @@ return
     {"luvit/tap@0.1.0-1"
     ,"luvit/require@1.2.0"
     ,"luvit/core@1.0.2-1"
-	  ,"pagodabox/actor@0.1.0"
+	  ,"pagodabox/cauterize@0.1.0"
 	  ,"pagodabox/logger@0.1.0"}
   ,files =
     {"**.lua"

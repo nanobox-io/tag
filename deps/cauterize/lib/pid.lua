@@ -18,7 +18,7 @@ local max_pids = 10
 
 
 -- this could be better. its needs to take into account service
--- reboots
+-- reboots and pid reuse.
 function Pid.next()
 	Pid.available()
 	while pids[next_pid] ~= nil do
@@ -39,10 +39,19 @@ end
 
 -- get a process from the pid
 function Pid.lookup(pid)
-	return pids[pid]
+	-- just incase nothing was passed in.
+	if pid then
+		return pids[pid]
+	end
 end
 
+-- remove a pid from the mapping
 function Pid.remove(pid)
+	-- if the last pid died, we don't want to reuse the pid immediately
+	if pid == next_pid then
+		next_pid = next_pid + 1
+	end
+
 	pids[pid] = nil
 	total_pids = total_pids - 1
 end
@@ -53,6 +62,12 @@ function Pid.enter(pid,process)
 	else
 		error('pid is already taken')
 	end
+end
+
+function Pid.empty()
+	pids = {}
+	total_pids = 0
+	next_pid = 1
 end
 
 return Pid
