@@ -11,7 +11,8 @@
 
 local Cauterize = require('cauterize')
 local log = require('logger')
-local file = require('file')
+local file = require('fs')
+local lmmdb = require('lmmdb')
 local json = require('json')
 
 local Store = require('./store/manager')
@@ -45,9 +46,10 @@ if #args == 2 then
 	end
 
 	-- enter the main event loop, this function should never return
-	Cauterize.Reactor:enter(function(env)
-		App:new(env:current())
-	end)
+	-- we aren't ready for this yet
+	-- Cauterize.Reactor:enter(function(env)
+	-- 	App:new(env:current())
+	-- end)
 
 	-- not reached
 	assert(false,'something went seriously wrong')

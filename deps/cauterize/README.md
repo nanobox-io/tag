@@ -1,3 +1,3 @@
-#Actor
+#Cauterize
 
-Actor brings message passing to lua coroutines.
+Cauterize stops the bleeding when writing evented code.
