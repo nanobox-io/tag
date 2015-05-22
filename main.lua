@@ -8,18 +8,19 @@
 -- @end
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
-local logger = require('logger')
+local log = require('logger')
 local os = require('os')
 
 function main()
 	if args[1] == '-server' then
-		logger.add_logger('debug','console',function(...) p(os.date("%x %X"),...) end)
-		logger.info("starting server")
+		log.add_logger('debug','console',function(...) p(os.date("%x %X"),...) end)
+		log.info("starting server")
 		table.remove(args,1)
 		require('./lib/server')
+		-- not reached
 	else
-		logger.add_logger('debug','console',function(...) p(...) end)
-		logger.debug("entering cli mode")
+		log.add_logger('debug','console',function(...) p(...) end)
+		log.debug("entering cli mode")
 		require('./lib/cli')
 	end
 end

@@ -9,34 +9,50 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
-local Actor = require('actor')
-local Supervisor = Actor.Supervisor
+local Cauterize = require('cauterize')
+local log = require('logger')
 local file = require('file')
 local json = require('json')
 
-local App = Supervisor:extend()
+local Store = require('./store/manager')
+local Failover = require('./failover/manager')
 
-function App:_init(type,data)
-	if type == "-config-file" then
+if #args == 2 then
+	local App = Cauterize.Supervisor:extend()
+
+	local type = args[1]
+	local data = args[2]
+	if type == '-config-file' then
 		data = file:read(data)
-	elseif type ~= "-config-json" then
-		error("bad type"..type)
+	elseif type ~= '-config-json' then
+		error('bad type'..type)
 	end
 
 	-- i need to validate and pull out the correct config options
-	self.config = json.parse(data)
-end
+	local config = json.parse(data)
+	-- I really need to store the config somewhere...
+	log.info('starting server with config:',config)
 
-function App:_manage()
-	self:manage(require('./store/store.lua'))
-	:manage(require('./failover/manager.lua'))
-end
+	function App:_manage()
+		log.info('tag server is starting')
+		self:manage(Store)
+				:manage(Failover)
 
-if #args == 2 then
-	Actor.Enter(function()
-		App:start(args[1],args[2])
+		if config.simple ~= true then
+			log.info('enabling replicated mode')
+			self:manage(Replication)
+		end
+	end
+
+	-- enter the main event loop, this function should never return
+	Cauterize.Reactor:enter(function(env)
+		App:new(env:current())
 	end)
+
+	-- not reached
+	assert(false,'something went seriously wrong')
 else
-	logger.info("Usage: tag -server (-config-file|-config-json) {path|json}")
+	-- print some simple help messages
+	log.info('Usage: tag -server (-config-file|-config-json) {path|json}')
 end
 
