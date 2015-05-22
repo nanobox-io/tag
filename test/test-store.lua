@@ -41,7 +41,7 @@ require('tap')(function (test)
 	end)
 
 	test('store can insert/fetch/remove items',function()
-		local clean,enter,fetch,list,del = nil,nil,nil,nil,nil
+		local clean,enter,fetch,list,del,update = nil,nil,nil,nil,nil,nil
 		Reactor:enter(function(env)
 			local pid = Store:new(env:current())
 			clean = Cauterize.Server.call(pid,'fetch','test','asdf')
@@ -50,6 +50,7 @@ require('tap')(function (test)
 			fetch = Cauterize.Server.call(pid,'fetch','test','asdf')
 			list = Cauterize.Server.call(pid,'fetch','test')
 			del = Cauterize.Server.call(pid,'fetch','test','asdf')
+			update = Cauterize.Server.call(pid,'enter','test','asdf','what')
 		end)
 
 		assert(clean[1] or clean[2] == 'MDB_NOTFOUND: No matching key/data pair found',clean[2])
@@ -59,6 +60,8 @@ require('tap')(function (test)
 		assert(list[1],list[2])
 		assert(list[2][1].update == enter[2],'listing got the wrong object')
 		assert(del[1],del[2])
+		assert(update[1],update[2])
+		assert(update[2] ~= enter[2],'updated to the same time?')
 
 	end)
 end)

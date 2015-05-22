@@ -121,7 +121,7 @@ function Basic:enter(bucket, key, value, parent)
 	end
 
 	local txn = nil
-	
+
 	-- captures results into either {true, results} or {false, error}
 	local ret = {pcall(function()
 		-- we have a combo key for storing the actual data
@@ -131,10 +131,19 @@ function Basic:enter(bucket, key, value, parent)
 		txn = splode(Env.txn_begin, 
 			'store unable to create a transaction', self.env, parent, 0)
 
-		-- add the key to the bucket table.
-		xsplode(0, Txn.put,
-			'unable to add '.. combo ..' to \'buckets\' DB', txn, self.buckets,
-			bucket, key, Txn.MDB_NODUPDATA)
+		-- preserve the creation date if this is an update
+		local creation
+		local prev,err = Txn.get(txn, self.objects, combo, "element_t*")
+		if prev then
+			creation = prev.creation
+		else
+			creation = hrtime()
+
+			-- add the key to the bucket table.
+			xsplode(0, Txn.put,
+				'unable to add '.. combo ..' to \'buckets\' DB', txn, self.buckets,
+				bucket, key, Txn.MDB_NODUPDATA)
+		end
 
 		-- create an empty object. 16 for 2 longs, #value for the data, 1
 		-- for the NULL terminator
@@ -147,9 +156,13 @@ function Basic:enter(bucket, key, value, parent)
 		p('casting',data)
 		-- set the creation and update time to be now.
 		local container = ffi.new("element_t*", data)
-		local creation = hrtime()
-		container.creation = creation
-		container.update = creation
+		if not prev then
+			-- only if not an update
+			container.creation = creation
+			container.update = creation
+		else
+			container.update = hrtime()
+		end
 
 		-- copy in the actual data we are storing, 16 should be the right
 		-- offset
@@ -165,7 +178,7 @@ function Basic:enter(bucket, key, value, parent)
 		
 		-- we return the time that it was updated. The caller already has
 		-- the data that was sent
-		return creation
+		return container.update
 	end)}
 
 	-- perform some cleanup
