@@ -55,6 +55,7 @@ require('tap')(function (test)
 		assert(clean[1] or clean[2] == 'MDB_NOTFOUND: No matching key/data pair found',clean[2])
 		assert(enter[1],enter[2])
 		assert(fetch[1],fetch[2])
+		assert(fetch[2].update == enter[2],'we got the wrong object')
 		assert(list[1],list[2])
 		assert(del[1],del[2])
 
