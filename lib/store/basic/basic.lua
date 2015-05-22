@@ -120,13 +120,15 @@ function Basic:enter(bucket, key, value, parent)
 		return {false, 'value must be a string'}
 	end
 
+	local txn = nil
+	
 	-- captures results into either {true, results} or {false, error}
-	return {pcall(function()
+	local ret = {pcall(function()
 		-- we have a combo key for storing the actual data
 		local combo = bucket .. ':' .. key
 
 		-- begin a transaction
-		local txn = splode(Env.txn_begin, 
+		txn = splode(Env.txn_begin, 
 			'store unable to create a transaction', self.env, parent, 0)
 
 		-- add the key to the bucket table.
@@ -157,11 +159,21 @@ function Basic:enter(bucket, key, value, parent)
 		-- commit the transaction
 		err = xsplode(0, Txn.commit, 
 			'unable to commit transaction for' .. combo, txn)
+
+		-- clear out becuase it is invalid
+		txn = nil
 		
 		-- we return the time that it was updated. The caller already has
 		-- the data that was sent
 		return creation
 	end)}
+
+	-- perform some cleanup
+	if txn then
+		Txn.abort(txn)
+	end
+
+	return ret
 end
 
 -- remove a bucket, key from the database
