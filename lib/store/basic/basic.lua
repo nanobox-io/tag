@@ -236,7 +236,7 @@ function Basic:fetch(bucket, key)
 				-- get the value for the current key
 				local container = splode(Txn.get, 
 					'unable to get value for key ' .. combo, txn, self.objects, 
-					combo)
+					combo, "element_t*")
 				acc[#acc + 1] = container
 
 				-- advance cursor to next key, don't use 'splode because it
