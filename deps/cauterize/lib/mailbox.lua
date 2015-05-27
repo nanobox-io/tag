@@ -152,10 +152,11 @@ function Mailbox:insert(...)
 end
 
 function Mailbox:yield(...)
-	local res,err = coroutine.yield(...)
-	if res == 'exit' then
-		error(err)
+	local ret = {coroutine.yield(...)}
+	if ret[1] == 'exit' then
+		error(ret[2])
 	end
+	return unpack(ret)
 end
 
 return Mailbox

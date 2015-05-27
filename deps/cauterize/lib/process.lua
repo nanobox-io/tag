@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------
 
 local Object = require('core').Object
+local uv = require('uv')
 local Pid = require('./pid')
 local Link = require('./link')
 local Mailbox = require('./mailbox')
@@ -151,9 +152,17 @@ function Process:send_after(pid,time,...)
 	-- I still need to check if the msg being sent is nil
 
 	if self and self._mailbox then 
-		self._mailbox:yield("send",{pid,time,...})
+		return self._mailbox:yield("send",{pid,time,...})
 	elseif Reactor.current() then
-		Pid.lookup(Reactor.current())._mailbox:yield("send",{pid,time,...})
+		return Pid.lookup(Reactor.current())._mailbox:yield("send",{pid,time,...})
+	end
+end
+
+-- cancel the sending of a message that may have been sent
+function Process:cancel_timer(timer)
+	if timer then
+		uv.timer_stop(timer)
+		uv.close(timer)
 	end
 end
 
@@ -173,6 +182,11 @@ end
 
 function Process:current()
 	return Reactor.current()
+end
+
+-- we wrap an async function to be used inside of this coroutine
+function Process:wrap(fun,...)
+	return self._mailbox:yield('wrap',{fun,...})
 end
 
 return Process

@@ -47,7 +47,7 @@ function Reactor:enter(fun)
 	-- this should cause this function to block until there is nothing
 	-- else to work on
 	while self._io_wait > 0 or RunQueue:can_work() do
-		uv.run("once")
+		uv.run('once')
 		if not RunQueue:can_work() then
 			uv.idle_stop(self._idler)
 			self._ilding = false
@@ -77,10 +77,10 @@ end
 function Reactor:start_idle()
 	if not self._ilding then
 		uv.idle_start(self._idler,function()
-			assert(self._io_wait >= 0,"_io_wait was not right")
+			assert(self._io_wait >= 0,'_io_wait was not right')
 			-- we should only do this for a specific amount of time
 			repeat until not self:step()
-			assert(self._io_wait >= 0,"_io_wait was not right after loop")
+			assert(self._io_wait >= 0,'_io_wait was not right after loop')
 		end)
 		self._ilding = true
 	end
@@ -116,7 +116,8 @@ function Reactor:_step(process)
 	-- we track how long this process has run
 	local start = hrtime()
 	-- we let the process perform one step until it is paused
-	local more,info,args = coroutine.resume(process._routine)
+	local more,info,args = coroutine.resume(process._routine,
+		process._ret_args)
 
 	-- track how long it was on CPU, or at least how long it took
 	-- the coroutine.resume to finish running
@@ -126,9 +127,9 @@ function Reactor:_step(process)
 	current_pid = nil
 
 	if more and info then
-		if info == "timeout" then
-			if type(args) == "table"
-					and type(args[1]) == "number"
+		if info == 'timeout' then
+			if type(args) == 'table'
+					and type(args[1]) == 'number'
 					and args[1] > 0 then
 				-- the process is waiting for something in a timeout
 				-- unless it is just timing out....
@@ -145,7 +146,7 @@ function Reactor:_step(process)
 
 				-- we don't requeue this process
 				return
-			elseif type(args) == "table" and args[1] then
+			elseif type(args) == 'table' and args[1] then
 				-- if the process has a bad timeout value, lets kill it
 				process:exit('negative timeouts are not valid')
 				-- and let the clean up routine run
@@ -155,7 +156,7 @@ function Reactor:_step(process)
 				-- message to arrive without a timeout
 				return
 			end
-		elseif info == "send" and args ~= nil then
+		elseif info == 'send' and args ~= nil then
 			if args[2] == 0 then
 				-- this need to be better
 				table.remove(args,2)
@@ -167,14 +168,22 @@ function Reactor:_step(process)
 					process._timer = nil
 				end
 				
-				Reactor.send_after(table.remove(args,1),dec,unpack(args))
+				process._ret_args = Reactor.send_after(table.remove(args,1),dec,unpack(args))
 				-- increment the counter so that we don't exit early
 				self._io_wait = self._io_wait + 1
 			end
-		elseif info == "pause" then
+		elseif info == 'pause' then
 			-- pause causes the process to wait for a message to arrive
 			return
-		elseif into ~= "yield" then
+		elseif info == 'wrap' then
+			-- wrap an async function to make it sync in the coroutine
+			local fun = table.remove(args,1)
+			fun(unpack(args),function(...)
+				process._ret_args = {...}
+				RunQueue:enter(process)
+			end)
+			return
+		elseif into ~= 'yield' then
 			process:exit('invalid yield value')
 			more = false
 		end
