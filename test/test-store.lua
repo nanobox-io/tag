@@ -44,7 +44,7 @@ require('tap')(function (test)
 		local clean,enter,fetch,list,del,update = nil,nil,nil,nil,nil,nil
 		Reactor:enter(function(env)
 			local pid = Store:new(env:current())
-			clean = Cauterize.Server.call(pid,'fetch','test','asdf')
+			clean = Cauterize.Server.call(pid,'remove','test','asdf')
 			p('clean got',clean)
 			enter = Cauterize.Server.call(pid,'enter','test','asdf','data')
 			fetch = Cauterize.Server.call(pid,'fetch','test','asdf')

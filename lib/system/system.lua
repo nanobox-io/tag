@@ -10,8 +10,8 @@
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
-local Json = require('json')
-local Plan = require('plan')
+-- local Json = require('Json')
+local Plan = require('./plan')
 -- local Name = require('cauterize/lib/name')
 -- local Pg = require('cauterize/lib/pg')
 
@@ -23,7 +23,7 @@ local topologies =
 	,'round_robin'}
 
 function System:_init(system_enc)
-	self.system = json.decode(system_enc)
+	-- self.system = json.decode(system_enc)
 	self.state = 'starting'
 	self.node_id = 'main' -- this should be pulled from the config
 	if topologies[self.system.topology] then
@@ -131,3 +131,5 @@ end
 function System:disable()
 	return {false, 'unable to disable system from state ' .. self.state}
 end
+
+return System

@@ -14,6 +14,7 @@ local log = require('logger')
 local Splode = require('splode')
 local splode, xsplode = Splode.splode, Splode.xsplode
 local hrtime = require('uv').hrtime
+local hash = require('./hash').crc32_string
 
 local db = require('lmmdb')
 local Env = db.Env
@@ -27,6 +28,7 @@ local ffi = require("ffi")
 -- decode just to update timestamps
 ffi.cdef[[
 typedef struct {
+	long hash; // hash of the combo key
 	long update; // last update time
 	long creation; // creation date
 	char data[1]; // first char of the string data
@@ -145,21 +147,21 @@ function Basic:enter(bucket, key, value, parent)
 				bucket, key, Txn.MDB_NODUPDATA)
 		end
 
-		-- create an empty object. 16 for 2 longs, #value for the data, 1
+		-- create an empty object. 24 for 3 longs, #value for the data, 1
 		-- for the NULL terminator
 		-- MDB_RESERVE returns a pointer to the memory reserved and stored
 		-- for the key combo
 		local data = splode(Txn.put, 
 			'unable to store value for ' .. combo, txn ,self.objects ,combo,
-			16 + #value + 1, Txn.MDB_RESERVE)
+			24 + #value + 1, Txn.MDB_RESERVE)
 
-		p('casting',data)
 		-- set the creation and update time to be now.
 		local container = ffi.new("element_t*", data)
 		if not prev then
 			-- only if not an update
 			container.creation = creation
 			container.update = creation
+			container.hash = hash(combo)
 		else
 			container.update = hrtime()
 		end
@@ -199,19 +201,19 @@ function Basic:remove(bucket, key, parent)
 	local ret = {pcall(function()
 		-- we have a combo key for storing the actual data
 		local combo = bucket .. ':' .. key
-
+		
 		-- begin a transaction, store it in txn so it can be aborted later
 		txn = splode(Env.txn_begin, 
 			'store unable to create a transaction ' .. combo, self.env, 
 			parent, 0)
 
 		-- delete the object value
-		xsplode(0, Txn.del, 'unable to delete object', txn, objects,
+		xsplode(0, Txn.del, 'unable to delete object', txn, self.objects,
 			combo)
 
 		-- delete the object key
 		xsplode(0, Txn.del, 'unable to delete object key ' .. combo, txn, 
-			buckets, bucket, key)
+			self.buckets, bucket, key)
 
 		-- commit all changes
 		xsplode(0, Txn.commit, 'unable to commit transaction ' .. combo,
