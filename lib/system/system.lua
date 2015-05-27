@@ -34,25 +34,21 @@ function System:_init(system_enc)
 	-- Name.register(self:current(), self.system.name)
 	-- Pg.register(self:current(), 'system')
 
-	self.plan = Plan:new()
+	
 	self.apply_timeout = nil
 	
-	Cauterize.Fsm.send(self:current(), 'clean')
+	-- this should clear out everything that is currently on this node
+	-- so that we don't have to deal with it being there when it should
+	-- not be
+	local elems = self:run('load')
+	self.plan = Plan:new(elems)
+	self._on = {}
+	self:apply()
 end
 
 -- create the states for this Fsm
 System.disabled = {}
 System.enabled = {}
-System.starting = {}
-
-function System.starting:clean()
-	-- really need to check if there is already data on the node so that
-	-- we can remove everything that shouldn't be on this node
-
-	-- TODO i need to clean everything out on startup
-
-	self.state = 'disabled'
-end
 
 function System.disabled:enable()
 	self.state = 'enabled'
@@ -81,7 +77,7 @@ function System:regen()
 	-- we do this incase multiple changes in nodes being up/down come in
 	-- a small amount of time and can be coalesed into a single change
 	-- in the plan
-	self.apply_timeout = self:send_after(current(), 1000, '$send',
+	self.apply_timeout = self:send_after(self:current(), 1000, '$send',
 		'apply')
 end
 
@@ -104,6 +100,7 @@ end
 -- run a script for an element of the system
 function System:run(name, elem)
 	log.debug('going to run', self.system[name], elem.data)
+	return ""
 end
 
 -- notify this system that a node came online
