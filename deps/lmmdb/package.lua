@@ -9,27 +9,19 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 return
-  {name = "pagodabox/tag"
-  ,version = "0.0.1"
+  {name = "pagodabox/lmmdb"
+  ,version = "0.1.0"
   ,author =
     {name = "Daniel Barney"
     ,email = "daniel@pagodabox.com"}
-  ,tags = {"failover","vip"}
+  ,tags = {"db","key","value","kv","key/value","store","lmmdb",
+  	"extention"}
   ,license = "MIT"
-  ,homepage = "https://github.com/pagodabox/tag"
-  ,description = "Tag a master and enjoy automatic failover"
-  ,dependencies = 
-    {"luvit/tap@0.1.0-1"
-    ,"luvit/require@1.2.0"
-    ,"luvit/core@1.0.2-1"
-    ,"luvit/fs@1.2.0"
-    ,"pagodabox/cauterize@0.1.0"
-    ,"pagodabox/lmmdb@0.1.0"
-    ,"pagodabox/logger@0.1.0"
-    ,"pagodabox/splode@0.1.0"}
+  ,homepage =
+    "https://github.com/pagodabox/tag/blob/master/deps/lmmdb"
+  ,description = "A simple wrapper around lmmdb"
   ,files =
     {"**.lua"
-    ,"**.txt"
     ,"**.so"
     ,"!examples"
     ,"!tests"}}
