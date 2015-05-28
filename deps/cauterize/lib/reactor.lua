@@ -187,6 +187,11 @@ function Reactor:_step(process)
 		-- sent is a list of all processes that received messages because
 		-- of links, they may need to be requeued.
 		for _,link in pairs(sent) do
+			if link._timer then
+				uv.timer_stop(link._timer)
+				uv.close(link._timer)
+				link._timer = nil
+			end
 			RunQueue:enter(link)
 		end
 		p('process died',process._pid,info)
