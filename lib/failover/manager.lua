@@ -21,9 +21,16 @@ function Failover:_manage()
 	log.info('failover manager is starting up')
 
 	-- start a process for each node in the cluster for monitoring.
-	local nodes = store:fetch('nodes')
-	for id,node in pairs(nodes) do
-		self:manage(Node:new(self:current(),opts))
+	local ret = store:fetch('nodes')
+	if ret[1] then
+		for id,node in pairs(ret[2]) do
+			local opts =
+				{quorum = math.floor(#ret[2]/2) + 1
+				,name = node.name}
+			self:manage(Node,opts)
+		end
+	else
+		error(ret[2])
 	end
 end
 

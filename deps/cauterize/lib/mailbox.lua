@@ -119,11 +119,13 @@ function Mailbox:recv(tags,timeout)
 	self._selective = nil
 	self._mailbox_searched = false
 
-	if not (timeout and (tags ~= nil and #tags == 1)) then
+	if timeout and (tags ~= nil and #tags == 1) then
+		-- clear out the timer ref message
+		self._match = nil
+		return nil
+	else
 		-- get the message that matched the pattern
 		return self:get_message()
-	else
-		return nil
 	end
 end
 

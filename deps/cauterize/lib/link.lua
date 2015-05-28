@@ -17,9 +17,9 @@ local Link = {}
 -- how does this requeue processes?
 local function send_message(to,ref,kind,reason)
 	if kind == "monitor" then
-		to._mailbox:insert(ref,'down',reason)
+		return to._mailbox:insert(ref,'down',reason)
 	elseif kind == "link" then
-		to._mailbox:insert(ref,'$exit',reason)
+		return to._mailbox:insert(ref,'$exit',reason)
 	else
 		error("unknown link type "..kind)
 	end
@@ -87,8 +87,9 @@ function Link.clean(pid,reason)
 	for ref,to in pairs(process._links) do
 		local to_p = Pid.lookup(to[2])
 		if to_p then
-			send_message(to_p,ref,to[1],process._crash_message)
-			sent[#sent + 1] = to_p
+			if send_message(to_p,ref,to[1],process._crash_message) then
+				sent[#sent + 1] = to_p
+			end
 		end
 	end
 	for ref,from in pairs(process._inverse_links) do
