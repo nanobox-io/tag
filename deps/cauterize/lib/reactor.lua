@@ -223,24 +223,6 @@ function Reactor.stream()
 	error('not yet implemented')
 end
 
--- send a message to a process after a period of time has passed
-function Reactor.send_after(pid,fun,timeout,...)
-	local args = {...}
-	if timeout == 0 then
-		send(pid,args)
-	else
-		local timer = uv.new_timer()
-		local function ontimeout()
-			uv.timer_stop(timer)
-			uv.close(timer)
-			fun()
-			Reactor.send(pid,unpack(args))
-		end
-		uv.timer_start(timer, timeout, 0, ontimeout)
-		return timer
-	end
-end
-
 reactor = Reactor:new()
 
 return reactor
