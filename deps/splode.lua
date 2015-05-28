@@ -15,7 +15,7 @@ exports.description =
   "wrap a function to log, and throw an error"
 exports.tags = {"error","explode","throw"}
 exports.license = "MIT"
-exports.deps = {"pagodabox/logger@0.1.0"}
+exports.deps = {}
 exports.author =
   	{name = "Daniel Barney"
   	,email = "daniel@pagodabox.com"}
@@ -27,7 +27,9 @@ local log = require('logger')
 -- log the error, then throw an error
 local function log_break(msg,err)
 	if err ~= nil then
-		log.warning(msg,err)
+		if type(exports.logger) == "function" then
+			exports.logger(msg,err)
+		end
 		error(err,0)
 	end
 end
