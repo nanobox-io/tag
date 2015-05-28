@@ -24,6 +24,7 @@ require('tap')(function (test)
 		end)
 		assert(Pid.lookup(pid),'pid does not exist')
 		Reactor:_step(Pid.lookup(pid))
+		Reactor:clean()
 		assert(ran,'the process did not run')
 	end)
 
@@ -32,6 +33,7 @@ require('tap')(function (test)
 		local order = {}
 		local t = function(step)
 			order[#order + 1] = step
+			p('step',step)
 		end
 		-- we don't want to exit when this finishes
 		Reactor.continue = true
@@ -61,8 +63,9 @@ require('tap')(function (test)
 		end)
 		
 		
-		assert(order[#order] == 9,'only got to step #'..#order)
-		for idx,step in pairs({0,1,4,2,5,3,6,7,8,9}) do
+		assert(order[#order] == 9,'only got to step #' .. order[#order])
+		p(order)
+		for idx,step in pairs({0,1,4,2,5,6,3,7,8,9}) do
 			assert(order[idx] == step,'step '..step..' was ran out of order')
 		end
 		assert(time > 500,"timeout was incorrect")

@@ -16,14 +16,15 @@ local RunQueue = require('./run_queue')
 local Pid = require('./pid')
 local Ref = require('./ref')
 local Name = require('./name')
+local Timer = require('./timer')
 local Object = require('core').Object
 
 local Reactor = Object:extend()
+local reactor = nil
 local current_pid = nil
 
 function Reactor:initialize()
-	self._idler = uv.new_idle() -- we run all process as an idler
-	self._io_wait = 0 -- count for how many io events we are waiting on
+	self._idler = nil -- we run all process as an idler
 	self._ilding = false -- are we currently idling
 end
 
@@ -46,13 +47,10 @@ function Reactor:enter(fun)
 
 	-- this should cause this function to block until there is nothing
 	-- else to work on
-	while self._io_wait > 0 or RunQueue:can_work() do
-		uv.run('once')
-		if not RunQueue:can_work() then
-			uv.idle_stop(self._idler)
-			self._ilding = false
-		end	
-	end
+	repeat
+		local events = uv.run()
+		p('finished uv loop',events,Reactor.io_count(),self._ilding)
+	until not events
 
 	--now exit the process
 	if not (self.continue == true) then
@@ -64,26 +62,43 @@ function Reactor:enter(fun)
 
 	end
 
+	self:clean()
+
+	-- what about handles?
+	p('io',Reactor.io_count())
+	assert(Reactor.io_count() == 0,'still waiting on handles')
+end
+
+function Reactor:clean()
 	-- clear out everything
 	RunQueue:empty()
 	Name.empty()
 	Pid.empty()
 	Ref.reset()
-
-	-- what about handles?
-	assert(self._io_wait == 0,'still waiting on handles')
+	Timer.empty()
 end
 
 function Reactor:start_idle()
 	if not self._ilding then
+		self._idler = uv.new_idle()
 		uv.idle_start(self._idler,function()
-			assert(self._io_wait >= 0,'_io_wait was not right')
+			assert(Reactor.io_count() >= 0,'_io_wait was not right')
 			-- we should only do this for a specific amount of time
 			repeat until not self:step()
-			assert(self._io_wait >= 0,'_io_wait was not right after loop')
+			assert(Reactor.io_count() >= 0,'_io_wait was not right after loop')
+
+			-- disable the idler to let other things run
+			uv.idle_stop(self._idler)
+			uv.close(self._idler)
+			self._ilding = false
 		end)
 		self._ilding = true
 	end
+end
+
+-- count all the io that we are waiting for
+function Reactor.io_count()
+	return Timer.running()
 end
 
 function Reactor.current()
@@ -102,14 +117,6 @@ end
 -- just an internal function so that during testing we can bypass the
 -- RunQueue
 function Reactor:_step(process)
-	-- if the process is waiting to timeout, we stop the timer.
-	if process._timer then
-		Reactor.cancel_timer(process._timer)
-		process._timer = nil
-		-- decrement so that when we are out of events we can end the loop
-		self._io_wait = self._io_wait - 1
-	end
-
 	-- set the current_pid so that it is available in the coroutine
 	current_pid = process._pid
 
@@ -118,7 +125,6 @@ function Reactor:_step(process)
 	-- we let the process perform one step until it is paused
 	local more,info,args = coroutine.resume(process._routine,
 		process._ret_args)
-
 	-- track how long it was on CPU, or at least how long it took
 	-- the coroutine.resume to finish running
 	process._run_time = process._run_time + hrtime() - start
@@ -126,68 +132,26 @@ function Reactor:_step(process)
 	-- we no longer need this set
 	current_pid = nil
 
-	if more and info then
-		if info == 'timeout' then
-			if type(args) == 'table'
-					and type(args[1]) == 'number'
-					and args[1] > 0 then
-				-- the process is waiting for something in a timeout
-				-- unless it is just timing out....
-				
-				local dec = function() 
-					self._io_wait = self._io_wait - 1
-					self:start_idle()
-					process._timer = nil
-				end
-				
-				process._timer = Reactor.send_after(process._pid,dec,unpack(args))
-				-- increment the counter so that we don't exit early
-				self._io_wait = self._io_wait + 1
+	-- a list of valid commands
+	local valid = 
+		{pause = true
+		,send = true
+		,yield = true}
 
-				-- we don't requeue this process
-				return
-			elseif type(args) == 'table' and args[1] then
-				-- if the process has a bad timeout value, lets kill it
-				process:exit('negative timeouts are not valid')
-				-- and let the clean up routine run
-				more = false
-			else
-				-- everything else should just be the process waiting for a
-				-- message to arrive without a timeout
-				return
-			end
-		elseif info == 'send' and args ~= nil then
-			if args[2] == 0 then
-				-- this need to be better
-				table.remove(args,2)
-				Reactor.send(unpack(args))
-			else
-				local dec = function() 
-					self._io_wait = self._io_wait - 1
-					self:start_idle()
-					process._timer = nil
-				end
-				
-				process._ret_args = Reactor.send_after(table.remove(args,1),dec,unpack(args))
-				-- increment the counter so that we don't exit early
-				self._io_wait = self._io_wait + 1
-			end
-		elseif info == 'pause' then
-			-- pause causes the process to wait for a message to arrive
-			return
-		elseif info == 'wrap' then
-			-- wrap an async function to make it sync in the coroutine
-			local fun = table.remove(args,1)
-			fun(unpack(args),function(...)
-				process._ret_args = {...}
+	if more and info then
+		if valid[info] then
+			-- run the function
+			args = args or {}
+			local ret,ret_value = Reactor[info](process._pid,unpack(args))
+			if ret then
 				RunQueue:enter(process)
-			end)
-			return
-		elseif into ~= 'yield' then
-			process:exit('invalid yield value')
-			more = false
+			end
+			process._ret_args = ret_value
+		else
+			error('invalid yield command: ' .. info)
 		end
 	end
+
 	if not more then
 		-- the process is dead, set the crash message
 		process._crash_message = info
@@ -204,37 +168,59 @@ function Reactor:_step(process)
 			RunQueue:enter(link)
 		end
 		p('process died',process._pid,info)
-	else
-		-- if there is more, lets requeue the process
-		RunQueue:enter(process)
 	end
 end
 
--- cancel a timeout timer
-function Reactor.cancel_timer(timer)
-	if timer then
-		uv.timer_stop(timer)
-		uv.close(timer)
-	end
+-- causes the current process to wait for a message to arrive
+function Reactor.pause() 
+	return false
 end
 
--- send a message to a process
-function Reactor.send(pid,...)
+-- sends a message from the current process
+function Reactor.send(current,pid,timeout,...)
 	-- convert a name into a pid
 	if type(pid) == 'string' then
-		pid = Name.lookup(pid)
-	end
-	local process = Pid.lookup(pid)
-	if process then
-		-- add the message to the mailbox, will return true if a match
-		-- found
-		if process._mailbox:insert(...) then
-			-- add the process to the list of things to run
-			RunQueue:enter(process)
+		if pid == "$self" then
+			pid = current
 		else
-			p('message did not match')
+			pid = Name.lookup(pid)
 		end
 	end
+	
+	if timeout > 0 then
+		local timer = Timer.new(timeout,Reactor.send,current,pid,0,...)
+		return true, timer
+	else
+		local process = Pid.lookup(pid)
+		if process then
+			-- add the message to the mailbox, will return true if a match
+			-- found
+			if process._mailbox:insert(...) then
+				-- add the process to the list of things to run
+				RunQueue:enter(process)
+				-- and start the idler back
+				reactor:start_idle()
+			else
+				p('message did not match')
+			end
+		end
+	end
+	return true
+end
+
+-- causes the current process to be put at the back of the RunQueue
+function Reactor.yield()
+	return true
+end
+
+-- wrap an async function call to be sync
+function Reactor.wrap()
+	error('not yet implemented')
+end
+
+-- warp an io stream to send messages
+function Reactor.stream()
+	error('not yet implemented')
 end
 
 -- send a message to a process after a period of time has passed
@@ -255,4 +241,6 @@ function Reactor.send_after(pid,fun,timeout,...)
 	end
 end
 
-return Reactor:new()
+reactor = Reactor:new()
+
+return reactor

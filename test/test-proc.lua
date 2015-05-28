@@ -38,10 +38,10 @@ require('tap')(function (test)
 
 		end)
 		p(response,msg)
-		assert(response == 'ok','wrong message was delivered')
-		assert(msg[2] == '$exit','wrong down message was delivered')
 		assert(init_ran,'_init did not run')
 		assert(loop_ran,'_loop did not run')
+		assert(response == 'ok','wrong message was delivered')
+		assert(msg[2] == '$exit','wrong down message was delivered')
 		assert(destroy_ran,'_destroy did not run')
 	end)
 

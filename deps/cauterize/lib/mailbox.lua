@@ -93,27 +93,24 @@ function Mailbox:recv(tags,timeout)
 		-- we need a ref so that no one else can inturupt this timeout
 		ref = Ref.make()
 		tags[#tags + 1] = ref
+		self:yield('send',{'$self',timeout,ref})
 	end
 
 	-- store off the tags so that we can access them later
 	self._selective = tags
 	self._mailbox_searched = false
 
-	-- wait for a message to match, if we are matching, or just wait for
-	-- a message, or for the timeout (which is also a message)
-	repeat
-		if timeout or ref then
-			-- we are waiting on a match, which may or may not time out
-			self:yield("timeout",{timeout,ref})
-		elseif #self._box > 0 then
+	-- wait for a message matching what is in self._selective
+	while not self:match() do
+		if self._match then
 			-- we have the message, but lets let others run
-			self.yield("yield")
+			self:yield("yield")
 		else
 			-- we don't have anything in our mailbox, lets wait for it to
 			-- arrive
 			self:yield("pause")
 		end
-	until self:match()
+	end
 	
 	-- clear out the _selective, we don't need it anymore
 	self._selective = nil

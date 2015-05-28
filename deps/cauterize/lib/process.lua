@@ -14,6 +14,7 @@ local uv = require('uv')
 local Pid = require('./pid')
 local Link = require('./link')
 local Mailbox = require('./mailbox')
+local Timer = require('./timer')
 local Name = require('./name')
 local Ref = require('./ref')
 local Reactor = require('./reactor')
@@ -68,10 +69,12 @@ function Process:initialize(start,opts)
 		self._routine = coroutine.create(function()
 			-- we do this to preserve send,recv,exit functions.
 			start(process,unpack(opts.args))
+			error('normal',0)
 		end)
 	else
 		self._routine = coroutine.create(function()
 			self[start](self,unpack(opts.args))
+			error('normal',0)
 		end)
 	end
 
@@ -140,7 +143,7 @@ end
 
 -- send a message to a process after time has passed
 function Process:send_after(pid,time,...)
-	if type(time) ~= "number" then
+	if type(time) ~= "number" or time < 0 then
 		error("invalid interval")
 	end
 
@@ -148,21 +151,19 @@ function Process:send_after(pid,time,...)
 	if type(pid) ~= "number" and type(pid) ~= 'string' then
 		error('invalid pid')
 	end
-	
-	-- I still need to check if the msg being sent is nil
 
-	if self and self._mailbox then 
-		return self._mailbox:yield("send",{pid,time,...})
-	elseif Reactor.current() then
-		return Pid.lookup(Reactor.current())._mailbox:yield("send",{pid,time,...})
+	if self and not self._mailbox then 
+		self = Pid.lookup(Reactor.current())
 	end
+
+	-- I still need to check if the msg being sent is nil
+	return self._mailbox:yield("send",{pid,time,...})
 end
 
 -- cancel the sending of a message that may have been sent
 function Process:cancel_timer(timer)
 	if timer then
-		uv.timer_stop(timer)
-		uv.close(timer)
+		Timer.cancel(timer)
 	end
 end
 
@@ -177,7 +178,7 @@ function Process:recv(...)
 end
 
 function Process:yield()
-	self._mailbox:yield()
+	self._mailbox:yield('yield')
 end
 
 function Process:current()

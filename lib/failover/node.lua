@@ -63,7 +63,7 @@ end
 -- this node as down
 function Node.up:start_timer(who)
 	p('starting timer',self.timeout,who)
-	self.timers[who] = self:send_after(self:current(),
+	self.timers[who] = self:send_after('$self',
 		self.timeout, '$cast', {'down', who})
 	p('got timers',self.timers)
 end
