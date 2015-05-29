@@ -70,7 +70,8 @@ function System:regen()
 		self._on = {}
 	else
 		-- i need to get the data stored in the system
-		local ret = Cauterize.Server.call('store', 'fetch', self.system.name)
+		local ret = Cauterize.Server.call('store', 'fetch',
+			self.system.name)
 		assert(ret[1], 'unable to get data nodes for system', ret[2])
 
 		-- divide it over the alive nodes in the system, and store the
