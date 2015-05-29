@@ -64,7 +64,7 @@ function Proc:_link_call(pid,cmd,...)
 	-- send the process the message
 	process:send(pid,cmd,args,{current,call_ref})
 	-- recv the response or the error
-	local msg = process:recv({ref,call_ref})
+	local msg = process:recv({call_ref,ref})
 
 	-- unmonitor the process that was called
 	Link.unmonitor(current,ref)

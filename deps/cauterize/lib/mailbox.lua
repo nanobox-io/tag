@@ -116,7 +116,7 @@ function Mailbox:recv(tags,timeout)
 	self._selective = nil
 	self._mailbox_searched = false
 
-	if timeout and (tags ~= nil and #tags == 1) then
+	if timeout and self._match[1] == tags[#tags] then
 		-- clear out the timer ref message
 		self._match = nil
 		return nil

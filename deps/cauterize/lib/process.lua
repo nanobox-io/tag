@@ -17,6 +17,7 @@ local Mailbox = require('./mailbox')
 local Timer = require('./timer')
 local Name = require('./name')
 local Ref = require('./ref')
+local Wrap = require('./wrap')
 local Reactor = require('./reactor')
 local RunQueue = require('./run_queue')
 
@@ -187,7 +188,11 @@ end
 
 -- we wrap an async function to be used inside of this coroutine
 function Process:wrap(fun,...)
-	return self._mailbox:yield('wrap',{fun,...})
+	return unpack(self._mailbox:yield('wrap',{fun,...}))
+end
+
+function Process:close(ref)
+	Wrap.close(ref)
 end
 
 return Process

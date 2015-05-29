@@ -22,7 +22,7 @@ function Server.cast(pid,...)
 end
 
 -- default handler for unhandled 'call' and 'cast' messages
-function Server:_unhandled() end
+function Server:_unhandled() return {false,'message not accepted'} end
 
 function Server:_perform(ref,fun,...)
 	local ret = nil
@@ -41,6 +41,7 @@ end
 function Server:_loop(msg)
 
 	local type,args,ref = unpack(msg)
+	self._current_call = ref
 	if type == '$call' then
 		self:_perform(ref,unpack(args))
 	elseif type == '$cast' then
@@ -50,6 +51,7 @@ function Server:_loop(msg)
 	else
 		self:_perform('handle_message',msg,nil)
 	end
+	self._current_call = nil
 end
 
 return Server

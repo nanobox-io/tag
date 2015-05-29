@@ -9,6 +9,8 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
+local uv = require('uv')
+local log = require('logger')
 local Cauterize = require('cauterize')
 -- local Json = require('Json')
 local Plan = require('./plan')
@@ -17,14 +19,14 @@ local Plan = require('./plan')
 
 local System = Cauterize.Fsm:extend()
 local topologies = 
-	{'choose_one'
-	,'nothing'
-	,'replicated'
-	,'round_robin'}
+	{choose_one = true
+	,nothing = true
+	,replicated = true
+	,round_robin = true}
 
-function System:_init(system_enc)
-	-- self.system = json.decode(system_enc)
-	self.state = 'starting'
+function System:_init(system)
+	self.system = system
+	self.state = 'disabled'
 	self.node_id = 'main' -- this should be pulled from the config
 	if topologies[self.system.topology] then
 		self.topology = require('./topology/' .. self.system.topology)
@@ -51,6 +53,7 @@ System.disabled = {}
 System.enabled = {}
 
 function System.disabled:enable()
+	p('enabling system')
 	self.state = 'enabled'
 	self:regen()
 end
@@ -61,24 +64,31 @@ function System.enabled:disable()
 end
 
 function System:regen()
-	-- i need to get the data stored in the system
-	local ret = Cauterize.Server.call('store', 'list', self.system.name)
-	assert(ret[1], 'unable to get data nodes for system', ret[2])
+	p('called regen')
+	if self.state == 'disabled' then
+		-- clear everything out
+		self._on = {}
+	else
+		-- i need to get the data stored in the system
+		local ret = Cauterize.Server.call('store', 'fetch', self.system.name)
+		assert(ret[1], 'unable to get data nodes for system', ret[2])
 
-	-- divide it over the alive nodes in the system, and store the
-	-- results for later
-	self._on = self.topology(ret[2], self.nodes, self.node_id)
+		-- divide it over the alive nodes in the system, and store the
+		-- results for later
+		self._on = self.topology(ret[2], self.nodes, self.node_id)
+	end
 
 	if self.apply_timeout then
-		self:cancel_timer(self.apply_timeout)
+		self:cancel_timer(self.apply_timeout[1])
+		self:respond(self.apply_timeout[2],{false,'inturrupted'})
 	end
 	
 	-- then run the plan after a set amount of time has passed
 	-- we do this incase multiple changes in nodes being up/down come in
 	-- a small amount of time and can be coalesed into a single change
 	-- in the plan
-	self.apply_timeout = self:send_after(self:current(), 1000, '$send',
-		'apply')
+	self.apply_timeout = {self:send_after('$self', 1000, '$call',
+		{'apply'}, self._current_call),self._current_call}
 end
 
 -- run a set of changes to bring this system to the next step of the
@@ -95,12 +105,43 @@ function System:apply()
 		self:run('down', elem)
 	end
 	log.info('system has stabalized', self.system.name)
+	return {true}
 end
 
 -- run a script for an element of the system
 function System:run(name, elem)
-	log.debug('going to run', self.system[name], elem.data)
-	return ""
+	if self.system[name] then
+		local data
+		if elem then
+			data = elem.data
+		end
+		log.debug('going to run', self.system[name], data)
+		local io_pipe = uv.new_pipe(false)
+		
+		local proc = self:wrap(uv.spawn, self.system[name],
+			{args = 
+				{data}
+			,stdio = 
+				{io_pipe,io_pipe,2}})
+		assert(self:wrap(uv.read_start, io_pipe) == io_pipe)
+		local code
+		local stdout = {}
+
+		-- collect run information
+		repeat
+			local msg = self:recv({io_pipe,proc})
+			if msg[1] == io_pipe then
+				stdout[#stdout + 1] = msg[3]
+			else
+				code = msg[2]
+				break
+			end
+		until false
+
+		self:close(proc)
+		self:close(io_pipe)
+		log.debug('result of running script',code,stdout)
+	end
 end
 
 -- notify this system that a node came online

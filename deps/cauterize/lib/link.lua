@@ -11,6 +11,7 @@
 
 local Ref = require('./ref')
 local Pid = require('./pid')
+local Name = require('./name')
 local Link = {}
 
 -- sends the result of a link or monitor to the registered process
@@ -29,6 +30,9 @@ end
 -- implementation of the link and monitor facade functions
 local function link(from,to,kind)
 	local ref = Ref.make()
+	if type(from) == "string" then
+		from = Name.lookup(from)
+	end
 	local from_p = Pid.lookup(from)
 	local to_p = Pid.lookup(to)
 	if not from_p then

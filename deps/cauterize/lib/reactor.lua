@@ -17,6 +17,7 @@ local Pid = require('./pid')
 local Ref = require('./ref')
 local Name = require('./name')
 local Timer = require('./timer')
+local Wrap = require('./wrap')
 local Object = require('core').Object
 
 local Reactor = Object:extend()
@@ -76,6 +77,7 @@ function Reactor:clean()
 	Pid.empty()
 	Ref.reset()
 	Timer.empty()
+	Wrap.empty()
 end
 
 function Reactor:start_idle()
@@ -136,6 +138,7 @@ function Reactor:_step(process)
 	local valid = 
 		{pause = true
 		,send = true
+		,wrap = true
 		,yield = true}
 
 	if more and info then
@@ -200,8 +203,6 @@ function Reactor.send(current,pid,timeout,...)
 				RunQueue:enter(process)
 				-- and start the idler back
 				reactor:start_idle()
-			else
-				p('message did not match')
 			end
 		end
 	end
@@ -213,9 +214,32 @@ function Reactor.yield()
 	return true
 end
 
--- wrap an async function call to be sync
-function Reactor.wrap()
-	error('not yet implemented')
+-- wrap an async function call to send messages to the process
+function Reactor.wrap(current,fun,...)
+	local ref
+	local args = {...}
+	local handle
+	local values = {}
+
+	-- setup the callback function
+	args[#args + 1] = function(...)
+		local process = Pid.lookup(current)
+		if process then
+			if process._mailbox:insert(ref,...) then
+				RunQueue:enter(process)
+				-- start the idler if needed
+				reactor:start_idle()
+			end
+		end
+	end
+	-- can this return an error?
+	ref = fun(unpack(args))
+	if ref == 0 then -- the call was sucessfull
+		-- grab the handle?
+		ref = args[1]
+	end
+	Wrap.enter(ref)
+	return true,{ref}
 end
 
 -- warp an io stream to send messages
