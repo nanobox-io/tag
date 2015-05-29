@@ -71,7 +71,7 @@ function Proc:_link_call(pid,cmd,...)
 
 	-- check if we got a message, or if the called process died
 	if type(msg) == 'table' and msg[1] == ref then
-		error('process died')
+		error('process died in call',0)
 	else
 		assert(msg[1] == call_ref,"wrong message was returned")
 		-- I don't know if this should be unpacked by default or not

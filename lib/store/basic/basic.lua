@@ -10,10 +10,12 @@
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
+local Name = require('cauterize/lib/name')
 local log = require('logger')
 local Splode = require('splode')
 local splode, xsplode = Splode.splode, Splode.xsplode
 local hrtime = require('uv').hrtime
+local hash = require('./hash').crc32_string
 
 local db = require('lmmdb')
 local Env = db.Env
@@ -27,6 +29,7 @@ local ffi = require("ffi")
 -- decode just to update timestamps
 ffi.cdef[[
 typedef struct {
+	long hash; // hash of the combo key
 	long update; // last update time
 	long creation; // creation date
 	char data[1]; // first char of the string data
@@ -107,6 +110,7 @@ function Basic:_init()
 
 	-- we commit the transaction so that our tables are created
 	xsplode(0,Txn.commit, 'unable to commit database creation', txn)
+	Name.register(self:current(),'store')
 end
 
 -- enter a new bucket, key and value into the database, returns an
@@ -124,6 +128,9 @@ function Basic:enter(bucket, key, value, parent)
 
 	-- captures results into either {true, results} or {false, error}
 	local ret = {pcall(function()
+		assert(type(value) == "string",'value must be a string')
+		assert(bucket,'unable to enter without a bucket')
+		assert(key,'unable to enter without a key')
 		-- we have a combo key for storing the actual data
 		local combo = bucket .. ':' .. key
 
@@ -145,21 +152,21 @@ function Basic:enter(bucket, key, value, parent)
 				bucket, key, Txn.MDB_NODUPDATA)
 		end
 
-		-- create an empty object. 16 for 2 longs, #value for the data, 1
+		-- create an empty object. 24 for 3 longs, #value for the data, 1
 		-- for the NULL terminator
 		-- MDB_RESERVE returns a pointer to the memory reserved and stored
 		-- for the key combo
 		local data = splode(Txn.put, 
 			'unable to store value for ' .. combo, txn ,self.objects ,combo,
-			16 + #value + 1, Txn.MDB_RESERVE)
+			24 + #value + 1, Txn.MDB_RESERVE)
 
-		p('casting',data)
 		-- set the creation and update time to be now.
 		local container = ffi.new("element_t*", data)
 		if not prev then
 			-- only if not an update
 			container.creation = creation
 			container.update = creation
+			container.hash = hash(combo)
 		else
 			container.update = hrtime()
 		end
@@ -197,21 +204,23 @@ function Basic:remove(bucket, key, parent)
 	local txn = nil
 	-- should either be {true} or {false, error}
 	local ret = {pcall(function()
+		assert(bucket,'unable to remove without a bucket')
+		assert(key,'unable to remove without a key')
 		-- we have a combo key for storing the actual data
 		local combo = bucket .. ':' .. key
-
+		
 		-- begin a transaction, store it in txn so it can be aborted later
 		txn = splode(Env.txn_begin, 
 			'store unable to create a transaction ' .. combo, self.env, 
 			parent, 0)
 
 		-- delete the object value
-		xsplode(0, Txn.del, 'unable to delete object', txn, objects,
+		xsplode(0, Txn.del, 'unable to delete object', txn, self.objects,
 			combo)
 
 		-- delete the object key
 		xsplode(0, Txn.del, 'unable to delete object key ' .. combo, txn, 
-			buckets, bucket, key)
+			self.buckets, bucket, key)
 
 		-- commit all changes
 		xsplode(0, Txn.commit, 'unable to commit transaction ' .. combo,
@@ -233,6 +242,7 @@ function Basic:fetch(bucket, key)
 	-- should either be {true, container}, {true, {container}} or 
 	-- {false, error}
 	local ret = {pcall(function()
+		assert(bucket,'unable to list without a bucket')
 		-- fetching is a read only transaction, hence MDB_RDONLY
 		txn = splode(Env.txn_begin, 'unable to create txn ' .. bucket, 
 			self.env, nil, Txn.MDB_RDONLY)

@@ -34,7 +34,8 @@ require('tap')(function (test)
 			state4 = Node.call(pid,'get_state')
 			Node.cast(pid,'down','node2')
 			state5 = Node.call(pid,'get_state')
-			
+			Node.cast(pid,'_stop')
+			p('done')
 		end)
 		
 		
