@@ -15,16 +15,11 @@ local System = require('./system')
 local Manager = Cauterize.Supervisor:extend()
 
 function Manager:_manage()
-	local ret = Cauterize.Server.call('store','list','systems')
+	local ret = Cauterize.Server.call('store','fetch','system')
 	if ret[1] then
 		for _,system in pairs(ret[2]) do
 			-- I think I need to unpack the system.data here
 			self:manage(System,{args = {system.data}})
 		end
 	end
-end
-
-
-function Manager:disable()
-	-- I need to disable all of the systems on this node
 end

@@ -37,11 +37,11 @@ if #args == 2 then
 	function App:_manage()
 		log.info('tag server is starting')
 		self:manage(Store)
-				:manage(Failover)
+				:manage(Failover,'supervisor')
 
-		if config.simple ~= true then
+		if config.replicated == true then
 			log.info('enabling replicated mode')
-			self:manage(Replication)
+			self:manage(Replication,'supervisor')
 		end
 	end
 

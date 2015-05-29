@@ -35,6 +35,9 @@ function Supervisor:manage(child,opts)
 	if not instanceof(child,Proc) then
 		error('can not supervise a process that is not based on \'proc\'')
 	end
+	if type(opts) == 'string' then
+		opts = {type = opts}
+	end
 	if not opts then opts = {} end
 	if not opts.name  then 
 		self.count = self.count + 1
@@ -82,6 +85,13 @@ function Supervisor:start_child(child,idx)
 	
 end
 
+function Supervisor:stop()
+	-- stop all processes managed by this supervisor
+	self:restart_rest(1,true)
+	-- now stop this supervisor
+	self._stop()
+end
+
 function Supervisor:clean(child_id)
 	self._deaths[child_id] = self._deaths[child_id] - 1
 end
@@ -126,13 +136,21 @@ function Supervisor:restart_one(child_id)
 	self:start_child(self._children[child_id],child_id)
 end
 
-function Supervisor:restart_rest(child_id)
+function Supervisor:restart_rest(child_id,skip)
 	for idx = child_id,#self._children do
 		local pid = self._pids[idx]
 		if pid then
-			self:exit(pid)
+			if self._children[idx].type == 'supervisor' then
+				-- should wait for the supervisor to exit
+				self:call(pid,'stop')
+			else
+				-- this may be too sudden
+				self:exit(pid)
+			end
 		end
-		self:start_child(self._children[idx],idx)
+		if skip then
+			self:start_child(self._children[idx],idx)
+		end
 	end
 end
 

@@ -16,12 +16,12 @@ local timers = {}
 local alive_timers = 0
 
 
-function Timer.new(timeout,fun,...)
+function Timer.new(interval,timeout,fun,...)
 	alive_timers = alive_timers + 1
 	local timer = uv.new_timer()
 	local args = {...}
 	timers[timer] = true
-	uv.timer_start(timer, timeout, 0, function()
+	uv.timer_start(timer, timeout, interval, function()
 		alive_timers = alive_timers - 1
 		timers[timer] = nil
 		uv.close(timer)
