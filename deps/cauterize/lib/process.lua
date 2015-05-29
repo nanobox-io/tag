@@ -10,7 +10,6 @@
 ----------------------------------------------------------------------
 
 local Object = require('core').Object
-local uv = require('uv')
 local Pid = require('./pid')
 local Link = require('./link')
 local Mailbox = require('./mailbox')
