@@ -77,19 +77,20 @@ function Node:get_state()
 end
 
 function Node:change_state_if_quorum_satisfied()
-	local up_quorum_count = 0
-
-	for _,node_is_up in pairs(self.reports) do
-		if node_is_up then
-			up_quorum_count = up_quorum_count + 1
+	if not self.is_permenant then
+		local up_quorum_count = 0
+		for _,node_is_up in pairs(self.reports) do
+			if node_is_up then
+				up_quorum_count = up_quorum_count + 1
+			end
 		end
-	end
 
-	if up_quorum_count >= self.needed_quorum then
-		self:change_to_new_state_and_notify('up')
-	else
-		-- this is also a quorum, but for down.
-		self:change_to_new_state_and_notify('down')
+		if up_quorum_count >= self.needed_quorum then
+			self:change_to_new_state_and_notify('up')
+		else
+			-- this is also a quorum, but for down.
+			self:change_to_new_state_and_notify('down')
+		end
 	end
 end
 

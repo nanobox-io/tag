@@ -60,52 +60,60 @@ require('tap')(function (test)
 
 	test('udp packets recevied can trigger state changes',function()
 		local host,port = "127.0.0.1",1234
-		local node1 = 
-			{quorum = 2
-			,name = '1'}
-		local node2 = 
-			{quorum = 2
-			,name = '2'}
-		local node3 = 
-			{quorum = 2
-			,name = '3'}
+		local nodes = {}
 		Reactor:enter(function(env)
-			local packet1 = Packet:new(env:current(), host, port ,'1')
-			local packet2 = Packet:new(env:current(), host, port + 1, '2')
-			local packet3 = Packet:new(env:current(), host, port + 2, '3')
-
-			-- these are shared between the three packet monitors above
-			local node1 = Node:new(env:current(), node1)
-			local node2 = Node:new(env:current(), node2)
-			local node3 = Node:new(env:current(), node3)
-
-			p('created nodes',node1,node2,node3)
-
-
-			for _,monitor in pairs({packet1,packet2,packet3}) do
-				Packet.call(monitor,'add_node',
-					{name = "1", host = host, port = port})
-				Packet.call(monitor,'add_node',
-					{name = "2", host = host, port = port + 1})
-				Packet.call(monitor,'add_node',
-					{name = "3", host = host, port = port + 2})
-				Packet.call(monitor,'enable')
+			local packets = {}
+			for i = 0, 2 do
+				local Test = Packet:extend()
+				-- overwritten so that we can dynamically decide which node we
+				-- need to talk to
+				function Test:update_state_on_node(name,...)
+					if #name == 3 then
+						Packet.cast(tostring(i).."a"..name:sub(3),...)
+					else
+						Packet.cast(tostring(i).."a"..name,...)
+					end
+				end
+				function Test:get_node_state(name,...)
+					return Packet.call(tostring(i).."a"..name,'get_state')
+				end
+				function Test:is_node_local(name)
+					return name == tostring(i)
+				end
+				packets[i] = Test:new(env:current(), host, port + i , tostring(i) .. "a" .. tostring(i))
+				nodes[i] = {}
+				for j = 0, 2 do 
+					local opts = 
+						{quorum = 2,name = i.."a"..j,host = host, port = port + j}
+					nodes[i][j] = Node:new(env:current(), opts)
+					opts.name = tostring(j)
+					Packet.call(packets[i],'add_node',opts)
+				end
+				Packet.call(packets[i],'enable')
 			end
 
-			env:recv(nil,5000)
-			Packet.call(packet1,'disable')
-			Packet.call(packet2,'disable')
-			Packet.call(packet3,'disable')
-
-			Node.cast(node1,'_stop')
-			Node.cast(node2,'_stop')
-			Node.cast(node3,'_stop')
-
-			Node.cast(packet1,'_stop')
-			Node.cast(packet2,'_stop')
-			Node.cast(packet3,'_stop')
+			env:recv(nil,10000)
+			
+			for i = 0, 2 do
+				Packet.call(packets[i],'disable')
+				for j = 0, 2 do 
+					local state = Node.call(nodes[i][j],'get_state')
+					Node.cast(nodes[i][j],'_stop')
+					nodes[i][j] = state
+				end
+			end
 		end)
-
-		assert(false,"this is a bad test because it requires manual verification")
+		p('final states',nodes)
+		local up,down = 0,0
+		for i = 0, 2 do
+			for j = 0, 2 do
+				if nodes[i][j] == 'up' then
+					up = up + 1
+				else
+					down = down + 1
+				end
+			end
+		end
+		assert(down == 0, tostring(down) .. ' nodes were down out of '.. tostring (up + down))
 	end)
 end)

@@ -17,7 +17,6 @@ local Fsm = Server:extend()
 function Fsm:_perform(ref,fun,...)
 	local ret = nil
 	assert(self.state  ~= nil, 'unable to have a nil state')
-
 	if self[self.state] ~= nil and 
 			type(self[self.state][fun]) == "function" then
 		-- call a function on a state member

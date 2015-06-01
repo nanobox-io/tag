@@ -38,6 +38,10 @@ end
 Packet.disabled = {}
 Packet.enabled = {}
 
+function Packet:update_state_on_node(node, state, who)
+	Cauterize.Fsm.cast(node, state, who)
+end
+
 function Packet:udp_recv(err, msg, rinfo, flags)
 	-- this is to show that there are no packets left to read?
 	-- kind of odd
@@ -45,13 +49,14 @@ function Packet:udp_recv(err, msg, rinfo, flags)
 
 	-- notify all nodes of the state reported in the remote packet
 	local who, nodes = self:parse(msg)
+	log.debug('received remote notification of cluster state', who,
+		nodes)
 	for node,state in pairs(nodes) do
-		Cauterize.Fsm.cast(node, state, who)
+		self:update_state_on_node(node, state, who)
 	end
 
-	-- we got a response, lets add this node to the list of nodes that
-	-- this it is up!
-	Cauterize.Fsm.cast(who, 'up', self.node)
+	-- we also know the the remote is up, we got a packet
+	self:update_state_on_node(who,'up',self.node)
 
 	-- now respond to the node that made the call
 	if not self.nodes_in_last_interval[who] then
@@ -85,9 +90,10 @@ function Packet.disabled:enable()
 	assert(self:wrap(uv.udp_recv_start,self.udp) == self.udp)
 	-- start sending broadcasts after 5 seconds to let this node catch
 	-- up with the cluster state
-	self._interval = self:send_interval("$self", 1000, 1000, '$cast',
+	self.notify_interval_timer = self:send_interval("$self", 1000, 1000, '$cast',
 		{'notify'})
-	p('going to call',self.node)
+
+	-- if we are running, then this node is up
 	Cauterize.Fsm.call(self.node,'set_permenant_state','up')
 
 	-- regenerate the list of nodes that we are interested in
@@ -97,14 +103,12 @@ function Packet.disabled:enable()
 end
 
 function Packet.enabled:notify()
-	local packets_sent_during_last_interval = self.responses_sent
+	local packets_sent_in_current_interval = self.responses_sent
 	local nodes_left = #self.pending_nodes
 
 	self:generate_new_packet()
 
-	-- durring one notify interval we at max want to send max_packets_per_interval
-	-- packets
-	while packets_sent_during_last_interval < 
+	while packets_sent_in_current_interval < 
 			self.max_packets_per_interval do
 
 		-- if we ran out of nodes, lets grab a new list of nodes
@@ -126,25 +130,38 @@ function Packet.enabled:notify()
 			Cauterize.Fsm.cast(who,'start_timer',self.node)
 		end
 
-		packets_sent_during_last_interval =
-			packets_sent_during_last_interval + 1
+		packets_sent_in_current_interval =
+			packets_sent_in_current_interval + 1
 		nodes_left = nodes_left - 1
 	end
 
 	self.nodes_in_last_interval = {}
-	self.responses_sent = math.max(0,
-		self.responses_sent - self.max_packets_per_interval)
 
+	-- any packets that we have sent over the limit of
+	-- max_packets_per_interval, count towards the next interval
+	self.responses_sent =
+		packets_sent_in_current_interval - self.max_packets_per_interval
+
+end
+
+function Packet:get_node_state(name)
+	return self.call(name,'get_state')
+end
+
+function Packet:is_node_local(name)
+	return self.name == name
 end
 
 function Packet:generate_new_packet()
 	local names = {self.node}
+	local count = 1
 	-- create a list of all nodes that are not up.
 	for name in pairs(self.nodes) do
-		if name ~= self.node then
-			local ret = self.call(name,'get_state')
+		if not self:is_node_local(name) then
+			local ret = self:get_node_state(name)
 			if ret ~= 'up' then
-				names[#names + 1] = name
+				count = count + 1
+				names[count] = name
 			end
 		end
 	end
@@ -168,7 +185,7 @@ function Packet:regen()
 	self.pending_nodes = {}
 	local count = 0
 	for idx,node in pairs(self.nodes) do
-		if node.name ~= self.node then
+		if not self:is_node_local(node.name) then
 			count = count + 1
 			self.pending_nodes[count] = {node.name,node.host,node.port}
 		end
@@ -178,7 +195,7 @@ end
 
 function Packet.enabled:disable()
 	self.state = 'disabled'
-	self:cancel_timer(self._interval)
+	self:cancel_timer(self.notify_interval_timer)
 	uv.udp_recv_stop(self.udp)
 	return true
 end
@@ -186,7 +203,7 @@ end
 function Packet:_destroy()
 	uv.udp_recv_stop(self.udp)
 	self:close(self.udp)
-	self:cancel_timer(self._interval)
+	self:cancel_timer(self.notify_interval_timer)
 end
 
 return Packet
