@@ -11,17 +11,16 @@
 
 local Cauterize = require('cauterize')
 local Node = require('./node')
+local Packet = require('./packet')
 local log = require('logger')
 
 local store = require('../store/store')
 
-local Failover = Cauterize.Supervisor:entend()
+local Nodes = Cauterize.Supervisor:entend()
 
-function Failover:_manage()
-	log.info('failover manager is starting up')
-
+function Nodes:_manage()
 	-- start a process for each node in the cluster for monitoring.
-	local ret = store:fetch('nodes')
+	local ret = Cauterize.Server.call('server','fetch','nodes')
 	if ret[1] then
 		for id,node in pairs(ret[2]) do
 			local opts =
@@ -32,6 +31,14 @@ function Failover:_manage()
 	else
 		error(ret[2])
 	end
+end
+
+local Failover = Cauterize.Supervisor:entend()
+
+function Failover:_manage()
+	log.info('failover manager is starting up')
+	self:manage(Packet)
+	    :manage(Nodes,'supervisor')
 end
 
 return Failover

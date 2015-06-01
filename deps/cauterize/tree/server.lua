@@ -40,14 +40,17 @@ end
 
 function Server:_loop(msg)
 
-	local type,args,ref = unpack(msg)
+	local fun,args,ref = unpack(msg)
 	self._current_call = ref
-	if type == '$call' then
+	if fun == '$call' then
 		self:_perform(ref,unpack(args))
-	elseif type == '$cast' then
+	elseif fun == '$cast' then
 		self:_perform(nil,unpack(args))
 	elseif args == 'down' or args == '$exit' then
 		self:_perform(nil,'down',unpack(msg))
+	elseif type(fun) == 'userdata' then
+		table.remove(msg,1)
+		self:_perform(nil,fun,unpack(msg))
 	else
 		self:_perform('handle_message',msg,nil)
 	end

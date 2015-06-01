@@ -14,7 +14,7 @@ local Pid = {}
 local pids = {}
 local next_pid = 1
 local total_pids = 0
-local max_pids = 10
+local max_pids = 100
 
 
 -- this could be better. its needs to take into account service

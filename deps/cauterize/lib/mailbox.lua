@@ -93,7 +93,7 @@ function Mailbox:recv(tags,timeout)
 		-- we need a ref so that no one else can inturupt this timeout
 		ref = Ref.make()
 		tags[#tags + 1] = ref
-		self:yield('send',{'$self',timeout,ref})
+		self:yield('send',{'$self',0,timeout,ref})
 	end
 
 	-- store off the tags so that we can access them later

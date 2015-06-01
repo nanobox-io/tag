@@ -180,7 +180,7 @@ function Reactor.pause()
 end
 
 -- sends a message from the current process
-function Reactor.send(current,pid,timeout,...)
+function Reactor.send(current,pid,interval,timeout,...)
 	-- convert a name into a pid
 	if type(pid) == 'string' then
 		if pid == "$self" then
@@ -191,7 +191,8 @@ function Reactor.send(current,pid,timeout,...)
 	end
 	
 	if timeout > 0 then
-		local timer = Timer.new(timeout,Reactor.send,current,pid,0,...)
+		local timer = Timer.new(interval,timeout,Reactor.send,current,pid,
+			interval,0,...)
 		return true, timer
 	else
 		local process = Pid.lookup(pid)
@@ -232,6 +233,7 @@ function Reactor.wrap(current,fun,...)
 			end
 		end
 	end
+
 	-- can this return an error?
 	ref = fun(unpack(args))
 	if ref == 0 then -- the call was sucessfull

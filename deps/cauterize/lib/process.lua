@@ -143,7 +143,13 @@ end
 
 -- send a message to a process after time has passed
 function Process:send_after(pid,time,...)
-	if type(time) ~= "number" or time < 0 then
+	return self:send_interval(pid,0,time,...)
+end
+
+-- send a message to a process after time has passed
+function Process:send_interval(pid,interval,time,...)
+	if type(time) ~= "number" or time < 0 or type(interval) ~= "number"
+			or time < 0 then
 		error("invalid interval")
 	end
 
@@ -157,7 +163,7 @@ function Process:send_after(pid,time,...)
 	end
 
 	-- I still need to check if the msg being sent is nil
-	return self._mailbox:yield("send",{pid,time,...})
+	return self._mailbox:yield("send",{pid,interval,time,...})
 end
 
 -- cancel the sending of a message that may have been sent
@@ -169,7 +175,7 @@ end
 
 -- send a message to a process
 function Process:send(pid,...)
-	self:send_after(pid,0,...)
+	self:send_interval(pid,0,0,...)
 end
 
 -- receive a message from the mailbox
