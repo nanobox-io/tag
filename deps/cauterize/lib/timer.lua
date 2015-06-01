@@ -22,9 +22,11 @@ function Timer.new(interval,timeout,fun,...)
 	local args = {...}
 	timers[timer] = true
 	uv.timer_start(timer, timeout, interval, function()
-		alive_timers = alive_timers - 1
-		timers[timer] = nil
-		uv.close(timer)
+		if interval == 0 then
+			alive_timers = alive_timers - 1
+			timers[timer] = nil
+			uv.close(timer)
+		end
 		fun(unpack(args))
 	end)
 	return timer
