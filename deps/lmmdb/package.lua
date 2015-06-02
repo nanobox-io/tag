@@ -15,7 +15,7 @@ return
     {name = "Daniel Barney"
     ,email = "daniel@pagodabox.com"}
   ,tags = {"db","key","value","kv","key/value","store","lmmdb",
-  	"extention"}
+    "extention"}
   ,license = "MIT"
   ,homepage =
     "https://github.com/pagodabox/tag/blob/master/deps/lmmdb"

@@ -14,7 +14,9 @@ return
   ,author =
     {name = "Daniel Barney"
     ,email = "daniel@pagodabox.com"}
-  ,tags = {"failover","vip"}
+  ,tags = 
+    {"failover"
+    ,"vip"}
   ,license = "MIT"
   ,homepage = "https://github.com/pagodabox/tag"
   ,description = "Tag a master and enjoy automatic failover"

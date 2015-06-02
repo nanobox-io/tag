@@ -12,16 +12,16 @@ local log = require('logger')
 local os = require('os')
 
 function main()
-	if args[1] == '-server' then
-		log.add_logger('debug','console',function(...) p(os.date("%x %X"),...) end)
-		log.info("starting server")
-		table.remove(args,1)
-		require('./lib/server')
-		-- not reached
-	else
-		log.add_logger('debug','console',function(...) p(...) end)
-		log.debug("entering cli mode")
-		require('./lib/cli')
-	end
+  if args[1] == '-server' then
+    log.add_logger('debug','console',function(...) p(os.date("%x %X"),...) end)
+    log.info("starting server")
+    table.remove(args,1)
+    require('./lib/server')
+    -- not reached
+  else
+    log.add_logger('debug','console',function(...) p(...) end)
+    log.debug("entering cli mode")
+    require('./lib/cli')
+  end
 end
 main()

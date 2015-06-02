@@ -14,13 +14,23 @@ local log = require('logger')
 
 local Api = require('./api')
 local Basic = require('./basic/basic')
+local Replication = require('./replicated/replicated')
+local Sync = require('./replicated/sync')
 
 local Store = Cauterize.Supervisor:entend()
 
 function Store:_manage()
-	log.info('store manager is starting up')
-	self:manage(Basic)
-			:manage(Api)
+  local replicated_db = Cauterize.Supervisor.call('config','get',
+    'replicated_db')
+
+  if replicated_db == true then
+    log.info('enabling replicated mode')
+    self:manage(Replication)
+        :manage(Sync,'supervisor')
+  else
+    log.info('enabling non-replicated mode')
+    self:manage(Replication)
+  end
 end
 
 return Store

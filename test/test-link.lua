@@ -13,45 +13,45 @@ local Link = require('cauterize/lib/link')
 local Pid = require('cauterize/lib/pid')
 local Mailbox = require('cauterize/lib/mailbox')
 require('tap')(function (test)
-	local function new_proc()
-		local proc = 
-			{_links = {}
-			,_pid = Pid.next()
-			,_mailbox = Mailbox:new()
-			,_inverse_links = {}}
-		Pid.enter(proc._pid,proc)
-		return proc
-	end
+  local function new_proc()
+    local proc = 
+      {_links = {}
+      ,_pid = Pid.next()
+      ,_mailbox = Mailbox:new()
+      ,_inverse_links = {}}
+    Pid.enter(proc._pid,proc)
+    return proc
+  end
 
-	test("can monitor another process",function()
-		local proc1 = new_proc()
-		local proc2 = new_proc()
-		local proc3 = new_proc()
-		Link.monitor(proc1._pid,proc2._pid)
-		assert(#proc2._mailbox._box == 0,"there was a message already")
-		Link.clean(proc1._pid)
-		assert(#proc2._mailbox._box == 1,"link message did not arrive")
+  test("can monitor another process",function()
+    local proc1 = new_proc()
+    local proc2 = new_proc()
+    local proc3 = new_proc()
+    Link.monitor(proc1._pid,proc2._pid)
+    assert(#proc2._mailbox._box == 0,"there was a message already")
+    Link.clean(proc1._pid)
+    assert(#proc2._mailbox._box == 1,"link message did not arrive")
 
-	end)
+  end)
 
-	test("if the linked process is dead the message is immediately sent",function()
-		local proc1 = new_proc()
-		local proc2 = new_proc()
-		local proc3 = new_proc()
-		assert(#proc1._mailbox._box == 0,"there was a message already")
-		Link.monitor(proc3._pid + 1,proc1._pid)
-		assert(#proc1._mailbox._box == 1,"link message did not arrive")
+  test("if the linked process is dead the message is immediately sent",function()
+    local proc1 = new_proc()
+    local proc2 = new_proc()
+    local proc3 = new_proc()
+    assert(#proc1._mailbox._box == 0,"there was a message already")
+    Link.monitor(proc3._pid + 1,proc1._pid)
+    assert(#proc1._mailbox._box == 1,"link message did not arrive")
 
-	end)
+  end)
 
-	test("we can link and unlink without the message being sent",function()
-		local proc1 = new_proc()
-		local proc2 = new_proc()
-		local proc3 = new_proc()
-		assert(#proc3._mailbox._box == 0,"there was a message already")
-		local ref = Link.monitor(proc1._pid,proc3._pid)
-		Link.unmonitor(proc3._pid,ref)
-		assert(#proc3._mailbox._box == 0,"link message should not have been delivered")
+  test("we can link and unlink without the message being sent",function()
+    local proc1 = new_proc()
+    local proc2 = new_proc()
+    local proc3 = new_proc()
+    assert(#proc3._mailbox._box == 0,"there was a message already")
+    local ref = Link.monitor(proc1._pid,proc3._pid)
+    Link.unmonitor(proc3._pid,ref)
+    assert(#proc3._mailbox._box == 0,"link message should not have been delivered")
 
-	end)
+  end)
 end)

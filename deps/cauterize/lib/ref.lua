@@ -15,12 +15,12 @@ local ref = 0
 -- this could be done better, it needs to take into account when a
 -- service reboots.
 function Ref.make()
-	ref = ref + 1
-	return ref
+  ref = ref + 1
+  return ref
 end
 
 function Ref.reset()
-	ref = 0
+  ref = 0
 end
 
 return Ref

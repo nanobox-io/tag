@@ -15,46 +15,46 @@ local file = require('fs')
 local lmmdb = require('lmmdb')
 local json = require('json')
 
+local Config = require('./config')
 local Store = require('./store/manager')
 local Failover = require('./failover/manager')
+local Api = require('./api/manager')
+
+
+local Api = require('./store/basic/loader')
 
 if #args == 2 then
-	local App = Cauterize.Supervisor:extend()
 
-	local type = args[1]
-	local data = args[2]
-	if type == '-config-file' then
-		data = file:read(data)
-	elseif type ~= '-config-json' then
-		error('bad type'..type)
-	end
+  local type = args[1]
+  local data = args[2]
+  if type == '-config-file' then
+    data = file:read(data)
+  elseif type ~= '-config-json' then
+    error('bad type'..type)
+  end
 
-	-- i need to validate and pull out the correct config options
-	local config = json.parse(data)
-	-- I really need to store the config somewhere...
-	log.info('starting server with config:',config)
+  -- maybe I should drop some ascii art in here? that could be fun :)
 
-	function App:_manage()
-		log.info('tag server is starting')
-		self:manage(Store)
-				:manage(Failover,'supervisor')
+  local config = json.parse(data)
 
-		if config.replicated == true then
-			log.info('enabling replicated mode')
-			self:manage(Replication,'supervisor')
-		end
-	end
+  -- set up the main application supervisor
+  local App = Cauterize.Supervisor:extend()
+  function App:_manage()
+    self:manage(Config,{args = {config}})
+        :manage(Store,'supervisor')
+        :manage(Failover,'supervisor')
+        :manage(Api,'supervisor')
+  end
 
-	-- enter the main event loop, this function should never return
-	-- we aren't ready for this yet
-	-- Cauterize.Reactor:enter(function(env)
-	-- 	App:new(env:current())
-	-- end)
+  -- enter the main event loop, this function should never return
+  Cauterize.Reactor:enter(function(env)
+    App:new(env:current())
+  end)
 
-	-- not reached
-	assert(false,'something went seriously wrong')
+  -- not reached
+  assert(false,'something went seriously wrong')
 else
-	-- print some simple help messages
-	log.info('Usage: tag -server (-config-file|-config-json) {path|json}')
+  -- print some simple help messages
+  log.info('Usage: tag -server (-config-file|-config-json) {path|json}')
 end
 

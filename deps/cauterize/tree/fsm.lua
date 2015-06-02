@@ -15,20 +15,20 @@ local Fsm = Server:extend()
 -- we need a custom _perform function to support the syntax of
 -- Class.state:function()
 function Fsm:_perform(ref,fun,...)
-	local ret = nil
-	assert(self.state  ~= nil, 'unable to have a nil state')
-	if self[self.state] ~= nil and 
-			type(self[self.state][fun]) == "function" then
-		-- call a function on a state member
-		ret = self[self.state][fun](self, ...)
+  local ret = nil
+  assert(self.state  ~= nil, 'unable to have a nil state')
+  if self[self.state] ~= nil and 
+      type(self[self.state][fun]) == "function" then
+    -- call a function on a state member
+    ret = self[self.state][fun](self, ...)
 
-		if ret ~= nil and ref ~= nil then
-			self:respond(ref,ret)
-		end
-	else
-		-- pass call upto parent class Server
-		Server._perform(self,ref,fun,...)
-	end
+    if ret ~= nil and ref ~= nil then
+      self:respond(ref,ret)
+    end
+  else
+    -- pass call upto parent class Server
+    Server._perform(self,ref,fun,...)
+  end
 end
 
 return Fsm

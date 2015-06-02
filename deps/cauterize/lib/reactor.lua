@@ -25,8 +25,8 @@ local reactor = nil
 local current_pid = nil
 
 function Reactor:initialize()
-	self._idler = nil -- we run all process as an idler
-	self._ilding = false -- are we currently idling
+  self._idler = nil -- we run all process as an idler
+  self._ilding = false -- are we currently idling
 end
 
 -- enter is the entry into the cauterize project. it handles all the
@@ -36,217 +36,217 @@ end
 -- it will do its best to clean everything out for a new run
 function Reactor:enter(fun)
 
-	-- we need to avoid require loop dependancies
-	local init = require('./process'):new(function(env)
-		-- do we need to do some setup stuff?
-		fun(env)
-		-- what about teardown stuff?
-	end,{name = 'init',register_name = true})
+  -- we need to avoid require loop dependancies
+  local init = require('./process'):new(function(env)
+    -- do we need to do some setup stuff?
+    fun(env)
+    -- what about teardown stuff?
+  end,{name = 'init',register_name = true})
 
-	-- start the idler running
-	self:start_idle()
+  -- start the idler running
+  self:start_idle()
 
-	-- this should cause this function to block until there is nothing
-	-- else to work on
-	repeat
-		local events = uv.run()
-		p('finished uv loop',events,Reactor.io_count(),self._ilding)
-	until not events
+  -- this should cause this function to block until there is nothing
+  -- else to work on
+  repeat
+    local events = uv.run()
+    p('finished uv loop',events,Reactor.io_count(),self._ilding)
+  until not events
 
-	--now exit the process
-	if not (self.continue == true) then
-		-- close the idler handle
-		uv.close(self._idler)
-		-- exit the process
-		os.exit(0)
-	else
+  --now exit the process
+  if not (self.continue == true) then
+    -- close the idler handle
+    uv.close(self._idler)
+    -- exit the process
+    os.exit(0)
+  else
 
-	end
+  end
 
-	self:clean()
+  self:clean()
 
-	-- what about handles?
-	p('io',Reactor.io_count())
-	assert(Reactor.io_count() == 0,'still waiting on handles')
+  -- what about handles?
+  p('io',Reactor.io_count())
+  assert(Reactor.io_count() == 0,'still waiting on handles')
 end
 
 function Reactor:clean()
-	-- clear out everything
-	RunQueue:empty()
-	Name.empty()
-	Pid.empty()
-	Ref.reset()
-	Timer.empty()
-	Wrap.empty()
+  -- clear out everything
+  RunQueue:empty()
+  Name.empty()
+  Pid.empty()
+  Ref.reset()
+  Timer.empty()
+  Wrap.empty()
 end
 
 function Reactor:start_idle()
-	if not self._ilding then
-		self._idler = uv.new_idle()
-		uv.idle_start(self._idler,function()
-			assert(Reactor.io_count() >= 0,'_io_wait was not right')
-			-- we should only do this for a specific amount of time
-			repeat until not self:step()
-			assert(Reactor.io_count() >= 0,'_io_wait was not right after loop')
+  if not self._ilding then
+    self._idler = uv.new_idle()
+    uv.idle_start(self._idler,function()
+      assert(Reactor.io_count() >= 0,'_io_wait was not right')
+      -- we should only do this for a specific amount of time
+      repeat until not self:step()
+      assert(Reactor.io_count() >= 0,'_io_wait was not right after loop')
 
-			-- disable the idler to let other things run
-			uv.idle_stop(self._idler)
-			uv.close(self._idler)
-			self._ilding = false
-		end)
-		self._ilding = true
-	end
+      -- disable the idler to let other things run
+      uv.idle_stop(self._idler)
+      uv.close(self._idler)
+      self._ilding = false
+    end)
+    self._ilding = true
+  end
 end
 
 -- count all the io that we are waiting for
 function Reactor.io_count()
-	return Timer.running()
+  return Timer.running()
 end
 
 function Reactor.current()
-	return current_pid
+  return current_pid
 end
 
 -- step enters one process and runs until that process is suspended
 function Reactor:step()
-	local process = RunQueue:next()
-	if process then
-		self:_step(process)
-	end
-	return RunQueue:can_work()
+  local process = RunQueue:next()
+  if process then
+    self:_step(process)
+  end
+  return RunQueue:can_work()
 end
 
 -- just an internal function so that during testing we can bypass the
 -- RunQueue
 function Reactor:_step(process)
-	-- set the current_pid so that it is available in the coroutine
-	current_pid = process._pid
+  -- set the current_pid so that it is available in the coroutine
+  current_pid = process._pid
 
-	-- we track how long this process has run
-	local start = hrtime()
-	-- we let the process perform one step until it is paused
-	local more,info,args = coroutine.resume(process._routine,
-		process._ret_args)
-	-- track how long it was on CPU, or at least how long it took
-	-- the coroutine.resume to finish running
-	process._run_time = process._run_time + hrtime() - start
+  -- we track how long this process has run
+  local start = hrtime()
+  -- we let the process perform one step until it is paused
+  local more,info,args = coroutine.resume(process._routine,
+    process._ret_args)
+  -- track how long it was on CPU, or at least how long it took
+  -- the coroutine.resume to finish running
+  process._run_time = process._run_time + hrtime() - start
 
-	-- we no longer need this set
-	current_pid = nil
+  -- we no longer need this set
+  current_pid = nil
 
-	-- a list of valid commands
-	local valid = 
-		{pause = true
-		,send = true
-		,wrap = true
-		,yield = true}
+  -- a list of valid commands
+  local valid = 
+    {pause = true
+    ,send = true
+    ,wrap = true
+    ,yield = true}
 
-	if more and info then
-		if valid[info] then
-			-- run the function
-			args = args or {}
-			local ret,ret_value = Reactor[info](process._pid,unpack(args))
-			if ret then
-				RunQueue:enter(process)
-			end
-			process._ret_args = ret_value
-		else
-			error('invalid yield command: ' .. info)
-		end
-	end
+  if more and info then
+    if valid[info] then
+      -- run the function
+      args = args or {}
+      local ret,ret_value = Reactor[info](process._pid,unpack(args))
+      if ret then
+        RunQueue:enter(process)
+      end
+      process._ret_args = ret_value
+    else
+      error('invalid yield command: ' .. info)
+    end
+  end
 
-	if not more then
-		-- the process is dead, set the crash message
-		process._crash_message = info
-		-- and perform clean up on the process
-		local sent = process:destroy()
-		-- sent is a list of all processes that received messages because
-		-- of links, they may need to be requeued.
-		for _,link in pairs(sent) do
-			if link._timer then
-				uv.timer_stop(link._timer)
-				uv.close(link._timer)
-				link._timer = nil
-			end
-			RunQueue:enter(link)
-		end
-		p('process died',process._pid,info)
-	end
+  if not more then
+    -- the process is dead, set the crash message
+    process._crash_message = info
+    -- and perform clean up on the process
+    local sent = process:destroy()
+    -- sent is a list of all processes that received messages because
+    -- of links, they may need to be requeued.
+    for _,link in pairs(sent) do
+      if link._timer then
+        uv.timer_stop(link._timer)
+        uv.close(link._timer)
+        link._timer = nil
+      end
+      RunQueue:enter(link)
+    end
+    p('process died',process._pid,info)
+  end
 end
 
 -- causes the current process to wait for a message to arrive
 function Reactor.pause() 
-	return false
+  return false
 end
 
 -- sends a message from the current process
 function Reactor.send(current,pid,interval,timeout,...)
-	-- convert a name into a pid
-	if type(pid) == 'string' then
-		if pid == "$self" then
-			pid = current
-		else
-			pid = Name.lookup(pid)
-		end
-	end
-	
-	if timeout > 0 then
-		local timer = Timer.new(interval,timeout,Reactor.send,current,pid,
-			interval,0,...)
-		return true, timer
-	else
-		local process = Pid.lookup(pid)
-		if process then
-			-- add the message to the mailbox, will return true if a match
-			-- found
-			if process._mailbox:insert(...) then
-				-- add the process to the list of things to run
-				RunQueue:enter(process)
-				-- and start the idler back
-				reactor:start_idle()
-			end
-		end
-	end
-	return true
+  -- convert a name into a pid
+  if type(pid) == 'string' then
+    if pid == "$self" then
+      pid = current
+    else
+      pid = Name.lookup(pid)
+    end
+  end
+  
+  if timeout > 0 then
+    local timer = Timer.new(interval,timeout,Reactor.send,current,pid,
+      interval,0,...)
+    return true, timer
+  else
+    local process = Pid.lookup(pid)
+    if process then
+      -- add the message to the mailbox, will return true if a match
+      -- found
+      if process._mailbox:insert(...) then
+        -- add the process to the list of things to run
+        RunQueue:enter(process)
+        -- and start the idler back
+        reactor:start_idle()
+      end
+    end
+  end
+  return true
 end
 
 -- causes the current process to be put at the back of the RunQueue
 function Reactor.yield()
-	return true
+  return true
 end
 
 -- wrap an async function call to send messages to the process
 function Reactor.wrap(current,fun,...)
-	local ref
-	local args = {...}
-	local handle
-	local values = {}
+  local ref
+  local args = {...}
+  local handle
+  local values = {}
 
-	-- setup the callback function
-	args[#args + 1] = function(...)
-		local process = Pid.lookup(current)
-		if process then
-			if process._mailbox:insert(ref,...) then
-				RunQueue:enter(process)
-				-- start the idler if needed
-				reactor:start_idle()
-			end
-		end
-	end
+  -- setup the callback function
+  args[#args + 1] = function(...)
+    local process = Pid.lookup(current)
+    if process then
+      if process._mailbox:insert(ref,...) then
+        RunQueue:enter(process)
+        -- start the idler if needed
+        reactor:start_idle()
+      end
+    end
+  end
 
-	-- can this return an error?
-	ref = fun(unpack(args))
-	if ref == 0 then -- the call was sucessfull
-		-- grab the handle?
-		ref = args[1]
-	end
-	Wrap.enter(ref)
-	return true,{ref}
+  -- can this return an error?
+  ref = fun(unpack(args))
+  if ref == 0 then -- the call was sucessfull
+    -- grab the handle?
+    ref = args[1]
+  end
+  Wrap.enter(ref)
+  return true,{ref}
 end
 
 -- warp an io stream to send messages
 function Reactor.stream()
-	error('not yet implemented')
+  error('not yet implemented')
 end
 
 reactor = Reactor:new()

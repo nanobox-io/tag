@@ -17,21 +17,21 @@ local wraps = {}
 
 -- wrap a function to send messages to a process
 function Wrap.enter(ref)
-	wraps[ref] = true
+  wraps[ref] = true
 end
 
 function Wrap.close(ref)
-	if wraps[ref] then
-		wraps[ref] = nil
-		uv.close(ref)
-	end
+  if wraps[ref] then
+    wraps[ref] = nil
+    uv.close(ref)
+  end
 end
 
 function Wrap.empty()
-	for ref in pairs(wraps) do
-		uv.close(ref)
-	end
-	wraps = {}
+  for ref in pairs(wraps) do
+    uv.close(ref)
+  end
+  wraps = {}
 end
 
 return Wrap
