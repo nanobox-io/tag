@@ -11,6 +11,7 @@
 
 local Cauterize = require('cauterize')
 local Node = require('../lib/failover/node')
+local Config = require('../lib/config')
 
 local Reactor = Cauterize.Reactor
 Reactor.continue = true -- don't exit when nothing is left
@@ -19,6 +20,7 @@ require('tap')(function (test)
   test('nodes will switch states once a quorum is reached',function()
     local state1,state2,state3
     Reactor:enter(function(env)
+    	Config:new(env:current())
       local opts = 
         {quorum = 2
         ,name = 'testing'}
@@ -38,7 +40,7 @@ require('tap')(function (test)
       p('done')
     end)
     
-    
+    p(state1,state2,state3,state4,state5)
     assert(state1 == 'down',"incorrect initial state")
     assert(state2 == 'down',"incorrect second state")
     assert(state3 == 'up',"incorrect third state")
@@ -49,6 +51,7 @@ require('tap')(function (test)
   test('nodes will timeout and switch states correctly',function()
     local state1,state2
     Reactor:enter(function(env)
+    	Config:new(env:current())
       local opts = 
         {quorum = 2
         ,name = 'testing'}

@@ -13,6 +13,7 @@ local Cauterize = require('cauterize')
 local uv = require('uv')
 local Packet = require('../lib/failover/packet')
 local Node = require('../lib/failover/node')
+local Config = require('../lib/config')
 
 local Reactor = Cauterize.Reactor
 Reactor.continue = true -- don't exit when nothing is left
@@ -34,9 +35,9 @@ require('tap')(function (test)
     local host,port = "127.0.0.1",1234
 
     Reactor:enter(function(env)
+    	Config:new(env:current())
       local node1 = 
-        {quorum = 2
-        ,name = '1'}
+        {name = 'n1'}
       local node1 = Node:new(env:current(), node1)
 
       local pid = Test:new(env:current(),host,port)
@@ -62,6 +63,7 @@ require('tap')(function (test)
     local host,port = "127.0.0.1",1234
     local nodes = {}
     Reactor:enter(function(env)
+    	Config:new(env:current())
       local packets = {}
       for i = 0, 2 do
         local Test = Packet:extend()
@@ -81,6 +83,7 @@ require('tap')(function (test)
           return name == tostring(i)
         end
         packets[i] = Test:new(env:current(), host, port + i , tostring(i) .. "a" .. tostring(i))
+        Packet.call(packets[i],'remove_node',{name = 'n1'})
         nodes[i] = {}
         for j = 0, 2 do 
           local opts = 

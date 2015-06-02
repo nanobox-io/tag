@@ -12,6 +12,7 @@
 local Cauterize = require('cauterize')
 local System = require('../lib/system/system')
 local Store = require('../lib/store/basic/basic')
+local Config = require('../lib/config')
 
 local Reactor = Cauterize.Reactor
 Reactor.continue = true -- don't exit when nothing is left
@@ -20,6 +21,7 @@ require('tap')(function (test)
   test('system can transition to enabled',function()
     local enabled = false
     Reactor:enter(function(env)
+    	Config:new(env:current())
       local store = Store:new(env:current())
       p('store started',store)
       p(Store.call('store','fetch','test'))

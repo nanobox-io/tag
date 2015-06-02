@@ -26,10 +26,20 @@ function Packet:_init(host,port,node)
   self.enabled[self.udp] = self.udp_recv
 
   self.state = 'disabled'
-  self.packet = 'test packet' -- should be generated when needed
-  self.node = node or '1' -- should be pulled from the config
-  self.max_packets_per_interval = 2 -- should be pulled from the config
+  self.packet = nil
+
+  -- dynamic config options
+  self.node = node or Cauterize.Fsm.call('config', 'get', 'node_name')
+  self.max_packets_per_interval = Cauterize.Fsm.call('config', 'register',
+  	self:current(), 'max_packets_per_interval', 'update_config')
+  
   self.nodes = {}
+  local nodes = Cauterize.Fsm.call('config', 'register',
+  	self:current(), 'nodes_in_cluster', 'update_nodes')
+  for _,node in pairs(nodes) do
+  	self:add_node(node)
+  end
+  
   self.nodes_in_last_interval = {}
   self.responses_sent = 0
 end
@@ -37,6 +47,17 @@ end
 -- set up blank states
 Packet.disabled = {}
 Packet.enabled = {}
+
+function Packet:update_conifg(key,value)
+	self[key] = value
+end
+
+function Packet:update_nodes(key,nodes)
+	assert(key == 'nodes_in_cluster',
+		'wrong key passed to nodes update function')
+	
+	assert('not implemented added nodes to running cluster')
+end
 
 function Packet:update_state_on_node(node, state, who)
   Cauterize.Fsm.cast(node, state, who)
@@ -94,11 +115,13 @@ function Packet.disabled:enable()
     {'notify'})
 
   -- if we are running, then this node is up
+  p('going to call',self.node)
   Cauterize.Fsm.call(self.node,'set_permenant_state','up')
-
-  -- regenerate the list of nodes that we are interested in
-  self:regen()
-
+  p('generating node list')
+  self:generate_node_list()
+  p('generating new packet')
+  self:generate_new_packet()
+  p('finished enabling packet server')
   return true
 end
 
@@ -113,7 +136,7 @@ function Packet.enabled:notify()
 
     -- if we ran out of nodes, lets grab a new list of nodes
     if nodes_left == 0 then
-      nodes_left = self:regen()
+      nodes_left = self:generate_node_list()
       if nodes_left == 0 then
         break
       end
@@ -184,9 +207,10 @@ end
 
 function Packet:remove_node(node)
   self.nodes[node.name] = nil
+  return true
 end
 
-function Packet:regen()
+function Packet:generate_node_list()
   self.pending_nodes = {}
   local count = 0
   for idx,node in pairs(self.nodes) do

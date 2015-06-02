@@ -6,14 +6,16 @@
 -- @doc
 --
 -- @end
--- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
+-- Created :   2 June 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
-local Cauterize = require('cauterize')
-local Sync = Cauterize.Supervisor:entend()
-
-function Sync:_manage()
-
-end
-
-return Sync
+return
+  {node_name = 'n1'
+  ,replicated_db = false
+  ,database_path = './database'
+  ,node_wait_for_response_interval = 2000
+  ,nodes_in_cluster = 
+    {{name = 'n1', host = "127.0.0.1", port = 1234}}
+  ,needed_quorum = 2
+  ,max_packets_per_interval = 2
+  ,systems = {}}

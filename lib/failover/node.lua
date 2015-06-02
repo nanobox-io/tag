@@ -16,8 +16,14 @@ local Node = Cauterize.Fsm:extend()
 
 function Node:_init(config)
   self.state = 'down'
-  self.needed_quorum = config.quorum -- this should be computed
-  self.wait_for_response_timeout =  config.timeout or 2000
+
+  -- dynamic config options
+  self.needed_quorum = Cauterize.Fsm.call('config', 'register',
+  	self:current(), 'needed_quorum', 'quorum_update')
+  self.node_wait_for_response_intreval = Cauterize.Fsm.call('config',
+    'register', self:current(), 'node_wait_for_response_interval',
+    'udpate_config')
+  
   self.reports = {}
   self.timers = {}
   self.name = config.name
@@ -27,6 +33,20 @@ end
 -- set up some states
 Node.down = {}
 Node.up = {}
+
+-- we got an update to the config value, lets set it
+function Node:update_config(key,value)
+  self[key] = value
+end
+
+function Node:quorum_update(key,value)
+  assert(key == 'needed_quorum',
+    'wrong key was passed to update quorum')
+  self[key] = value
+
+  -- we we need to recheck our node state
+  self:change_state_if_quorum_satisfied()
+end
 
 
 -- we only want to check if we need to change states if up is called
@@ -69,7 +89,7 @@ end
 -- this node as down
 function Node.up:start_timer(who)
   self.timers[who] = self:send_after('$self',
-    self.wait_for_response_timeout, '$cast', {'down', who})
+    self.node_wait_for_response_intreval, '$cast', {'down', who})
 end
 
 function Node:get_state()
