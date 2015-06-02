@@ -14,7 +14,7 @@ local log = require('logger')
 local Cauterize = require('cauterize')
 -- local Json = require('Json')
 local Plan = require('./plan')
--- local Name = require('cauterize/lib/name')
+local Name = require('cauterize/lib/name')
 -- local Pg = require('cauterize/lib/pg')
 
 local System = Cauterize.Fsm:extend()
@@ -27,13 +27,13 @@ local topologies =
 function System:_init(system)
   self.system = system
   self.state = 'disabled'
-  self.node_id = 'main' -- this should be pulled from the config
+  self.node_id = Cauterize.Fsm.call('config', 'get', 'node_name')
   if topologies[self.system.topology] then
     self.topology = require('./topology/' .. self.system.topology)
   else
     error('unknown topology '..self.system.topology)
   end
-  -- Name.register(self:current(), self.system.name)
+  Name.register(self:current(), self.system.name)
   -- Pg.register(self:current(), 'system')
 
   

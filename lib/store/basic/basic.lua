@@ -43,7 +43,7 @@ local Basic = Cauterize.Server:extend()
 -- the store and setting everything up
 function Basic:_init()
   -- this should come from the config file
-  local path = './database'
+  local path = Cauterize.Server.call('config','get','database_path')
   local err
   self.env = splode(Env.create, 'unable to create store enviroment')
 
@@ -68,7 +68,6 @@ function Basic:_init()
     end
   until err ~= 'Device busy' -- should only loop once
 
-
   -- create the tables that we use
   local txn = splode(Env.txn_begin,
     'unable to begin create transaction', self.env, nil, 0)
@@ -77,36 +76,11 @@ function Basic:_init()
   self.objects = splode(DB.open, 'unable to create objects', 
     txn, "objects", DB.MDB_CREATE)
 
-  -- replication stores remote node states, so that on disconnects
-  -- replication can resume from where it left off
-  self.replication = splode(DB.open, 'unable to create replication', 
-    txn, "replication", DB.MDB_CREATE)
-
-  -- logs records write operations on this node until not needed
-  -- MDB_INTEGERKEY because we use timestamps
-  self.logs = splode(DB.open, 'unable to create logs', 
-    txn, "logs", DB.MDB_CREATE + DB.MDB_INTEGERKEY)
-
   -- buckets stores the keys that are in a bucket. this is used to
   -- enforce order and for listing a bucket
   -- MDB_DUPSORT because we store multiple values under one key
   self.buckets = splode(DB.open, 'unable to create buckets', 
     txn, "buckets", DB.MDB_DUPSORT + DB.MDB_CREATE)
-  
-  -- we need to fetch the last operation that was commited
-  local cursor = Cursor.open(txn, self.logs)
-  local key, _op = Cursor.get(cursor, nil, Cursor.MDB_LAST,
-    "unsigned long*")
-
-  if key then
-    -- if we have something stored, then the store is not new
-    log.info("last operation commited", key[0])
-    self.version = key[0]
-  else
-    -- if we don't have anything, then its a new database
-    log.info("new database was opened")
-    self.version = hrtime() * 100000
-  end
 
   -- we commit the transaction so that our tables are created
   xsplode(0,Txn.commit, 'unable to commit database creation', txn)
@@ -116,14 +90,6 @@ end
 -- enter a new bucket, key and value into the database, returns an
 -- error or the update time of the data
 function Basic:enter(bucket, key, value, parent)
-
-  -- we don't assume any encoding at all on the value, so it must be
-  -- a string by the time this function gets called
-  if type(value) ~= "string" then
-    log.warning('value must be a string', value)
-    return {false, 'value must be a string'}
-  end
-
   local txn = nil
 
   -- captures results into either {true, results} or {false, error}

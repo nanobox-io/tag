@@ -12,6 +12,7 @@
 local Cauterize = require('cauterize')
 local log = require('logger')
 local Store = require('../lib/store/basic/basic')
+local Config = require('../lib/config')
 
 log.add_logger('debug','store',p)
 
@@ -30,6 +31,7 @@ require('tap')(function (test)
       return true
     end
     Reactor:enter(function(env)
+    	Config:new(env:current())
       local pid = TestStore:new(env:current())
       store_started = true
       p('going to call',pid)
@@ -43,6 +45,7 @@ require('tap')(function (test)
   test('store can insert/fetch/remove items',function()
     local clean,enter,fetch,list,del,update = nil,nil,nil,nil,nil,nil
     Reactor:enter(function(env)
+    	Config:new(env:current())
       local pid = Store:new(env:current())
       clean = Cauterize.Server.call(pid,'remove','test','asdf')
       p('clean got',clean)

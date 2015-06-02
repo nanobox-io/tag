@@ -20,17 +20,24 @@ local Nodes = Cauterize.Supervisor:entend()
 
 function Nodes:_manage()
   -- start a process for each node in the cluster for monitoring.
-  local ret = Cauterize.Server.call('server','fetch','nodes')
+  local nodes = Cauterize.Server.call('config', 'register',
+  	self:current(), 'nodes_in_cluster', 'update_nodes')
   if ret[1] then
     for id,node in pairs(ret[2]) do
       local opts =
-        {quorum = math.floor(#ret[2]/2) + 1
-        ,name = node.name}
+        {name = node.name}
       self:manage(Node,opts)
     end
   else
     error(ret[2])
   end
+end
+
+function Nodes:update_nodes(key,value,type)
+	assert(key == 'nodes_in_cluster',
+		'wrong key was passed to update nodes')
+
+	assert(false, 'not implemented yet')
 end
 
 local Failover = Cauterize.Supervisor:entend()
