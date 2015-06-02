@@ -70,10 +70,21 @@ function Node.down:down(who)
   self:set_remote_report(who,false)
 end
 
+function Node.up:suspicious(who)
+	self.suspicious_reporter = who
+	Node.up.down(self,who)
+end
+
 function Node:set_remote_report(who,node_is_up)
+	if node_is_up and 
+			self.suspicious_reporter and who == 
+			self.suspicious_reporter then
+		self.suspicious_reporter = nil
+	end
   -- cancel a timer if one was created
   if self.timers[who] then
     self:cancel_timer(self.timers[who])
+    self.timers[who] = nil
   end
   self.reports[who] = node_is_up
 end
@@ -89,11 +100,15 @@ end
 -- this node as down
 function Node.up:start_timer(who)
   self.timers[who] = self:send_after('$self',
-    self.node_wait_for_response_intreval, '$cast', {'down', who})
+    self.node_wait_for_response_intreval, '$cast', {'suspicious', who})
 end
 
 function Node:get_state()
-  return self.state
+	if self.suspicious_reporter then
+		return "suspicious"
+	else
+	  return self.state
+	 end
 end
 
 function Node:change_state_if_quorum_satisfied()
@@ -104,7 +119,6 @@ function Node:change_state_if_quorum_satisfied()
         up_quorum_count = up_quorum_count + 1
       end
     end
-
     if up_quorum_count >= self.needed_quorum then
       self:change_to_new_state_and_notify('up')
     else

@@ -14,22 +14,21 @@ local Node = require('./node')
 local Packet = require('./packet')
 local log = require('logger')
 
-local store = require('../store/store')
-
-local Nodes = Cauterize.Supervisor:entend()
+local Nodes = Cauterize.Supervisor:extend()
 
 function Nodes:_manage()
   -- start a process for each node in the cluster for monitoring.
   local nodes = Cauterize.Server.call('config', 'register',
   	self:current(), 'nodes_in_cluster', 'update_nodes')
-  if ret[1] then
-    for id,node in pairs(ret[2]) do
+  log.debug('managing nodes',nodes)
+  if nodes then
+    for name in pairs(nodes) do
       local opts =
-        {name = node.name}
-      self:manage(Node,opts)
+        {name = name}
+      self:manage(Node,{name = name, args = {opts}})
     end
   else
-    error(ret[2])
+    error(nodes)
   end
 end
 
@@ -40,7 +39,7 @@ function Nodes:update_nodes(key,value,type)
 	assert(false, 'not implemented yet')
 end
 
-local Failover = Cauterize.Supervisor:entend()
+local Failover = Cauterize.Supervisor:extend()
 
 function Failover:_manage()
   log.info('failover manager is starting up')

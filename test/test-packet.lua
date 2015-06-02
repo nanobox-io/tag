@@ -63,7 +63,7 @@ require('tap')(function (test)
     local host,port = "127.0.0.1",1234
     local nodes = {}
     Reactor:enter(function(env)
-    	Config:new(env:current())
+    	Config:new(env:current(),{nodes_in_cluster = {}})
       local packets = {}
       for i = 0, 2 do
         local Test = Packet:extend()
@@ -82,7 +82,8 @@ require('tap')(function (test)
         function Test:is_node_local(name)
           return name == tostring(i)
         end
-        packets[i] = Test:new(env:current(), host, port + i , tostring(i) .. "a" .. tostring(i))
+        packets[i] = Test:new(env:current(), host, port + i,
+        	tostring(i) .. "a" .. tostring(i), true)
         Packet.call(packets[i],'remove_node',{name = 'n1'})
         nodes[i] = {}
         for j = 0, 2 do 
@@ -95,7 +96,7 @@ require('tap')(function (test)
         Packet.call(packets[i],'enable')
       end
 
-      env:recv(nil,10000)
+      env:recv(nil,4000)
       
       for i = 0, 2 do
         Packet.call(packets[i],'disable')

@@ -12,12 +12,11 @@
 local Cauterize = require('cauterize')
 local log = require('logger')
 
-local Api = require('./api')
 local Basic = require('./basic/basic')
 local Replication = require('./replicated/replicated')
 local Sync = require('./replicated/sync')
 
-local Store = Cauterize.Supervisor:entend()
+local Store = Cauterize.Supervisor:extend()
 
 function Store:_manage()
   local replicated_db = Cauterize.Supervisor.call('config','get',
@@ -29,7 +28,7 @@ function Store:_manage()
         :manage(Sync,'supervisor')
   else
     log.info('enabling non-replicated mode')
-    self:manage(Replication)
+    self:manage(Basic)
   end
 end
 

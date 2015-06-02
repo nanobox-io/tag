@@ -10,16 +10,15 @@
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
+local Name = require('cauterize/lib/name')
 local uv = require('uv')
 local log = require('logger')
 local Packet = Cauterize.Fsm:extend()
 
-function Packet:_init(host,port,node)
+function Packet:_init(host,port,node,skip)
 
   -- create a udp socket
   self.udp = uv.new_udp()
-  uv.udp_bind(self.udp, host, port)
-  p('set up udp correctly',uv.udp_getsockname(self.udp))
 
   -- create a fake function so that the udp messages get sent to this
   -- function
@@ -30,18 +29,26 @@ function Packet:_init(host,port,node)
 
   -- dynamic config options
   self.node = node or Cauterize.Fsm.call('config', 'get', 'node_name')
+  local gossip_config = Cauterize.Fsm.call('config', 'get',
+  	'nodes_in_cluster')[self.node]
+  uv.udp_bind(self.udp, host or gossip_config.host,
+  	port or gossip_config.port)
   self.max_packets_per_interval = Cauterize.Fsm.call('config', 'register',
   	self:current(), 'max_packets_per_interval', 'update_config')
   
   self.nodes = {}
   local nodes = Cauterize.Fsm.call('config', 'register',
   	self:current(), 'nodes_in_cluster', 'update_nodes')
-  for _,node in pairs(nodes) do
+  for name,node in pairs(nodes) do
+  	node.name = name
   	self:add_node(node)
   end
   
   self.nodes_in_last_interval = {}
   self.responses_sent = 0
+  if not skip then
+	  Name.register(self:current(),'packet_server')
+	end
 end
 
 -- set up blank states
@@ -115,13 +122,9 @@ function Packet.disabled:enable()
     {'notify'})
 
   -- if we are running, then this node is up
-  p('going to call',self.node)
-  Cauterize.Fsm.call(self.node,'set_permenant_state','up')
-  p('generating node list')
+  Cauterize.Fsm.cast(self.node,'up',self.node)
   self:generate_node_list()
-  p('generating new packet')
   self:generate_new_packet()
-  p('finished enabling packet server')
   return true
 end
 
@@ -146,6 +149,7 @@ function Packet.enabled:notify()
     local who, host, port = unpack(table.remove(self.pending_nodes,
       nodes_left))
     if not self.nodes_in_last_interval[who] then
+    	self.nodes_in_last_interval[who] = true
       log.debug('sending packet',self.packet,'to',who)
       uv.udp_send(self.udp, self.packet, host, port)
 
@@ -172,7 +176,7 @@ function Packet:get_node_state(name)
 end
 
 function Packet:is_node_local(name)
-  return self.name == name
+  return self.node == name
 end
 
 function Packet:generate_new_packet()
@@ -197,7 +201,7 @@ function Packet:generate_new_packet()
 end
 
 function Packet:add_node(node)
-  p('adding node',node)
+  log.debug('adding node',node)
   assert(node.name,'missing node name')
   assert(node.host,'missing node host')
   assert(node.port,'missing node port')

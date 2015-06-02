@@ -11,7 +11,6 @@
 
 local Cauterize = require('cauterize')
 local System = require('../lib/system/system')
-local Store = require('../lib/store/basic/basic')
 local Config = require('../lib/config')
 
 local Reactor = Cauterize.Reactor
@@ -22,14 +21,15 @@ require('tap')(function (test)
     local enabled = false
     Reactor:enter(function(env)
     	Config:new(env:current())
-      local store = Store:new(env:current())
-      p('store started',store)
-      p(Store.call('store','fetch','test'))
+    	
       local opts = 
         {topology = 'nothing'
         ,load = 'date'
         ,name = 'test'}
-      local pid = System:new(env:current(),opts)
+
+       System.call('config','set','test',opts)
+       System.call('config','set','test-data',{})
+      local pid = System:new(env:current(),'test')
       enabled = System.call(pid,'enable')
     end)
 

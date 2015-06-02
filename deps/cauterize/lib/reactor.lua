@@ -50,7 +50,6 @@ function Reactor:enter(fun)
   -- else to work on
   repeat
     local events = uv.run()
-    p('finished uv loop',events,Reactor.io_count(),self._ilding)
   until not events
 
   --now exit the process
