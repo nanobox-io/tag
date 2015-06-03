@@ -30,25 +30,25 @@ function Packet:_init(host,port,node,skip)
   -- dynamic config options
   self.node = node or Cauterize.Fsm.call('config', 'get', 'node_name')
   local gossip_config = Cauterize.Fsm.call('config', 'get',
-  	'nodes_in_cluster')[self.node]
+    'nodes_in_cluster')[self.node]
   uv.udp_bind(self.udp, host or gossip_config.host,
-  	port or gossip_config.port)
+    port or gossip_config.port)
   self.max_packets_per_interval = Cauterize.Fsm.call('config', 'register',
-  	self:current(), 'max_packets_per_interval', 'update_config')
+    self:current(), 'max_packets_per_interval', 'update_config')
   
   self.nodes = {}
   local nodes = Cauterize.Fsm.call('config', 'register',
-  	self:current(), 'nodes_in_cluster', 'update_nodes')
+    self:current(), 'nodes_in_cluster', 'update_nodes')
   for name,node in pairs(nodes) do
-  	node.name = name
-  	self:add_node(node)
+    node.name = name
+    self:add_node(node)
   end
   
   self.nodes_in_last_interval = {}
   self.responses_sent = 0
   if not skip then
-	  Name.register(self:current(),'packet_server')
-	end
+    Name.register(self:current(),'packet_server')
+  end
 end
 
 -- set up blank states
@@ -56,14 +56,14 @@ Packet.disabled = {}
 Packet.enabled = {}
 
 function Packet:update_conifg(key,value)
-	self[key] = value
+  self[key] = value
 end
 
 function Packet:update_nodes(key,nodes)
-	assert(key == 'nodes_in_cluster',
-		'wrong key passed to nodes update function')
-	
-	assert('not implemented added nodes to running cluster')
+  assert(key == 'nodes_in_cluster',
+    'wrong key passed to nodes update function')
+  
+  assert('not implemented added nodes to running cluster')
 end
 
 function Packet:update_state_on_node(node, state, who)
@@ -149,7 +149,7 @@ function Packet.enabled:notify()
     local who, host, port = unpack(table.remove(self.pending_nodes,
       nodes_left))
     if not self.nodes_in_last_interval[who] then
-    	self.nodes_in_last_interval[who] = true
+      self.nodes_in_last_interval[who] = true
       log.debug('sending packet',self.packet,'to',who)
       uv.udp_send(self.udp, self.packet, host, port)
 
