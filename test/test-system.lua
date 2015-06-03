@@ -19,21 +19,28 @@ require('tap')(function (test)
   
   test('system can transition to enabled',function()
     local enabled = false
+    local call_works = false
     Reactor:enter(function(env)
-    	Config:new(env:current())
-    	
+      Config:new(env:current())
+
       local opts = 
         {topology = 'nothing'
         ,load = 'date'
         ,name = 'test'}
 
-       System.call('config','set','test',opts)
-       System.call('config','set','test-data',{})
-      local pid = System:new(env:current(),'test')
+      System.call('config','set','test',opts)
+      System.call('config','set','test-data',{})
+      local Test = System:extend()
+      function Test:test_call()
+        call_works = true
+      end
+      local pid = Test:new(env:current(),'test')
+      env:send({'group','systems'},'$cast',{'test_call'})
       enabled = System.call(pid,'enable')
     end)
 
     assert(enabled[1],enabled[2])
+    assert(call_works,'sending a message to the group did not work')
     
   end)
 end)

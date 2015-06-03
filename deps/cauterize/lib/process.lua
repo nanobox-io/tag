@@ -17,6 +17,7 @@ local Timer = require('./timer')
 local Name = require('./name')
 local Ref = require('./ref')
 local Wrap = require('./wrap')
+local Group = require('./group')
 local Reactor = require('./reactor')
 local RunQueue = require('./run_queue')
 
@@ -61,6 +62,7 @@ function Process:initialize(start,opts)
   self._mailbox = Mailbox:new()
   self._names = {}
   self._links = {}
+  self._groups = {}
   self._inverse_links = {}
 
   -- create the coroutine that is the process
@@ -112,6 +114,7 @@ function Process:destroy()
   Name.clean(pid)
   local sent = Link.clean(pid,self._crash_reason)
   Pid.remove(pid)
+  Group.clean(pid)
 
   -- we need to get this working correctly.
   if self._pid == Reactor.current() then
@@ -153,10 +156,14 @@ function Process:send_interval(pid,interval,time,...)
     error("invalid interval")
   end
 
-  -- string could be a registered name
-  if type(pid) ~= "number" and type(pid) ~= 'string' then
-    error('invalid pid')
-  end
+  -- pid could be a lot of things
+  local kind = type(pid)
+  local is_pid = kind == "number"
+  local is_name = kind == "string"
+  local is_group = kind == "table" and pid[1] == 'group'
+  local is_remote = kind == "table" and pid[1] == 'remote'
+
+  assert(is_pid or is_name or is_group or is_remote'invalid pid')
 
   if self and not self._mailbox then 
     self = Pid.lookup(Reactor.current())

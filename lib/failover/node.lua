@@ -134,7 +134,9 @@ function Node:change_to_new_state_and_notify(new_state)
   if self.state ~= new_state and not self.is_permenant then
     self.state = new_state
     log.warning('node changed state',self.name,new_state)
-    -- TODO notify everyone who wants a notification
+
+    -- notify all systems that this node changed state
+    self:send({'group','systems'},'$cast',{new_state,self.name})
   end
 end
 
