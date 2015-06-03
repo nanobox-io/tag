@@ -209,7 +209,11 @@ function Reactor.send(current,pid,interval,timeout,...)
     if is_group then
       local members = Group.get(pid[2])
       for i = 1, #members do
-        need_to_start = Reactor._send(members[i],...) or need_to_start
+        -- if the message comes from a member of the group, only send
+        -- it to the other members
+        if current ~= members[i] then
+          need_to_start = Reactor._send(members[i],...) or need_to_start
+       end
       end
     elseif is_remote then
       need_to_start = Reactor._send(pid[2],...)

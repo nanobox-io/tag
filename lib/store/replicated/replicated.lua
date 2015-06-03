@@ -54,3 +54,5 @@ function Replicated:init()
   xsplode(0,Txn.commit,
     'unable to commit replicated database creation', txn)
 end
+
+return Replicated
