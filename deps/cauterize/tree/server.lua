@@ -33,9 +33,7 @@ function Server:_perform(ref,fun,...)
     -- do we really want this functionality?
     ret = self:_unhandled(fun,...)
   end
-  if ref ~= nil and ret ~= nil then
-    self:respond(ref,ret)
-  end
+  self:respond(ref,ret)
 end
 
 function Server:_loop(msg)

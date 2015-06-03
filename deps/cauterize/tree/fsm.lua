@@ -19,12 +19,11 @@ function Fsm:_perform(ref,fun,...)
   assert(self.state  ~= nil, 'unable to have a nil state')
   if self[self.state] ~= nil and 
       type(self[self.state][fun]) == "function" then
+
     -- call a function on a state member
     ret = self[self.state][fun](self, ...)
 
-    if ret ~= nil and ref ~= nil then
-      self:respond(ref,ret)
-    end
+    self:respond(ref,ret)
   else
     -- pass call upto parent class Server
     Server._perform(self,ref,fun,...)

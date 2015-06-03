@@ -30,6 +30,7 @@ function Node:_init(config)
   self.name = config.name
   Name.register(self:current(),self.name)
   Group.join(self:current(),'nodes')
+  self:send({'group','systems'},'$cast',{'down',self.name})
 end
 
 -- set up some states

@@ -9,6 +9,7 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
-return function()
+return function(...)
+	p('topology: nothing',...)
   return {}
 end
