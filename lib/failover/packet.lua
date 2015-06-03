@@ -62,7 +62,7 @@ end
 function Packet:update_nodes(key,nodes)
   assert(key == 'nodes_in_cluster',
     'wrong key passed to nodes update function')
-  
+
   assert('not implemented added nodes to running cluster')
 end
 
