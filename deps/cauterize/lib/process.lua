@@ -163,7 +163,7 @@ function Process:send_interval(pid,interval,time,...)
   local is_group = kind == "table" and pid[1] == 'group'
   local is_remote = kind == "table" and pid[1] == 'remote'
 
-  assert(is_pid or is_name or is_group or is_remote'invalid pid')
+  assert(is_pid or is_name or is_group or is_remote, 'invalid pid')
 
   if self and not self._mailbox then 
     self = Pid.lookup(Reactor.current())
