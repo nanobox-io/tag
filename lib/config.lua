@@ -30,9 +30,6 @@ function Config:get(key)
   if value == nil then
     value = defaults[key]
   end
-  if value == nil then
-    value = Cauterize.Server.call('store','fetch',key)
-  end
   return value
 end
 

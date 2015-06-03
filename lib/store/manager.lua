@@ -19,17 +19,9 @@ local Sync = require('./replicated/sync')
 local Store = Cauterize.Supervisor:extend()
 
 function Store:_manage()
-  local replicated_db = Cauterize.Supervisor.call('config','get',
-    'replicated_db')
-
-  if replicated_db == true then
-    log.info('enabling replicated mode')
-    self:manage(Replication)
-        :manage(Sync,'supervisor')
-  else
-    log.info('enabling non-replicated mode')
-    self:manage(Basic)
-  end
+  log.info('enabling replicated mode')
+  self:manage(Replication)
+      :manage(Sync,'supervisor')
 end
 
 return Store
