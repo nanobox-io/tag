@@ -22,3 +22,5 @@ function Manager:_manage()
     end
   end
 end
+
+return Manager

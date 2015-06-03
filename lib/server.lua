@@ -18,10 +18,8 @@ local json = require('json')
 local Config = require('./config')
 local Store = require('./store/manager')
 local Failover = require('./failover/manager')
+local System = require('./system/manager')
 local Api = require('./api/manager')
-
-
-local Api = require('./store/basic/loader')
 
 if #args == 2 then
 
@@ -35,20 +33,28 @@ if #args == 2 then
 
   -- maybe I should drop some ascii art in here? that could be fun :)
 
-  local config = json.parse(data)
+  local config,err = json.parse(data)
+  if config == nil then
+  	error('json was poorly formatted')
+  end
 
   -- set up the main application supervisor
   local App = Cauterize.Supervisor:extend()
   function App:_manage()
-    self:manage(Config,{args = {config}})
-        :manage(Store,'supervisor')
-        :manage(Failover,'supervisor')
-        :manage(Api,'supervisor')
+    self:manage(Config,{args = {config}, name = 'config'})
+        :manage(Store,{type = 'supervisor', name = 'store manager'})
+        :manage(Failover,
+        	{type = 'supervisor', name = 'failover manager'})
+        :manage(System,{type = 'supervisor', name = 'system manager'})
+        :manage(Api,{type = 'supervisor', name = 'api manager'})
   end
 
   -- enter the main event loop, this function should never return
   Cauterize.Reactor:enter(function(env)
     App:new(env:current())
+    
+    -- now that everything is setup lets enable the sending of packets
+    Cauterize.Supervisor.call('packet_server','enable')
   end)
 
   -- not reached

@@ -76,6 +76,6 @@ require('tap')(function (test)
     
     assert(state1 == 'up',"incorrect initial state")
     assert(state2 == 'up',"timer fired")
-    assert(state3 == 'down',"timer didn't fire")
+    assert(state3 == 'suspicious',"timer didn't fire")
   end)
 end)

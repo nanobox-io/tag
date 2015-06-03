@@ -15,7 +15,7 @@ local Cauterize = require('cauterize')
 -- local Json = require('Json')
 local Plan = require('./plan')
 local Name = require('cauterize/lib/name')
--- local Pg = require('cauterize/lib/pg')
+local Group = require('cauterize/lib/group')
 
 local System = Cauterize.Fsm:extend()
 local topologies = 
@@ -25,7 +25,9 @@ local topologies =
   ,round_robin = true}
 
 function System:_init(system)
-  self.system = system
+	-- this might need to be dynamic
+  self.system = Cauterize.Fsm.call('config', 'get', system)
+
   self.state = 'disabled'
   self.node_id = Cauterize.Fsm.call('config', 'get', 'node_name')
   if topologies[self.system.topology] then
@@ -34,7 +36,7 @@ function System:_init(system)
     error('unknown topology '..self.system.topology)
   end
   Name.register(self:current(), self.system.name)
-  -- Pg.register(self:current(), 'system')
+  Group.join(self:current(),'systems')
 
   
   self.apply_timeout = nil
@@ -46,6 +48,8 @@ function System:_init(system)
   self.plan = Plan:new(elems)
   self._on = {}
   self:apply()
+
+  self:send_after('$self',1000,'$cast',{'enable'})
 end
 
 -- create the states for this Fsm
@@ -70,9 +74,9 @@ function System:regen()
     self._on = {}
   else
     -- i need to get the data stored in the system
-    local ret = Cauterize.Server.call('store', 'fetch',
-      self.system.name)
-    assert(ret[1], 'unable to get data nodes for system', ret[2])
+    local ret = Cauterize.Server.call('config', 'get',
+      self.system.name .. '-data')
+    -- assert(ret[1], 'unable to get data nodes for system', ret[2])
 
     -- divide it over the alive nodes in the system, and store the
     -- results for later

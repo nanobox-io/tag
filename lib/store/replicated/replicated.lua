@@ -9,7 +9,7 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
-local Store = require('../basic/store')
+local Store = require('../basic/basic')
 local Replicated = Store:extend()
 
 local Splode = require('splode')

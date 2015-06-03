@@ -26,9 +26,8 @@ function Config:_init(custom)
 end
 
 function Config:get(key)
-
   local value = self.config[key]
-  if not value then
+  if value == nil then
     value = defaults[key]
   end
   return value

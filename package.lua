@@ -16,15 +16,17 @@ return
     ,email = "daniel@pagodabox.com"}
   ,tags = 
     {"failover"
-    ,"vip"}
+    ,"vip"
+    ,"cluster"}
   ,license = "MIT"
   ,homepage = "https://github.com/pagodabox/tag"
-  ,description = "Tag a master and enjoy automatic failover"
+  ,description = "Tag a primary and enjoy automatic failover"
   ,dependencies = 
     {"luvit/tap@0.1.0-1"
     ,"luvit/require@1.2.0"
     ,"luvit/core@1.0.2-1"
     ,"luvit/fs@1.2.0"
+    ,"luvit/json@2.5.0"
     ,"pagodabox/cauterize@0.1.0"
     ,"pagodabox/lmmdb@0.1.0"
     ,"pagodabox/logger@0.1.0"

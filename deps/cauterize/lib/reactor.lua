@@ -18,6 +18,7 @@ local Ref = require('./ref')
 local Name = require('./name')
 local Timer = require('./timer')
 local Wrap = require('./wrap')
+local Group = require('./group')
 local Object = require('core').Object
 
 local Reactor = Object:extend()
@@ -50,7 +51,6 @@ function Reactor:enter(fun)
   -- else to work on
   repeat
     local events = uv.run()
-    p('finished uv loop',events,Reactor.io_count(),self._ilding)
   until not events
 
   --now exit the process
@@ -78,6 +78,7 @@ function Reactor:clean()
   Ref.reset()
   Timer.empty()
   Wrap.empty()
+  Group.empty()
 end
 
 function Reactor:start_idle()
@@ -181,12 +182,20 @@ end
 
 -- sends a message from the current process
 function Reactor.send(current,pid,interval,timeout,...)
+  local is_group,is_remote = false,false
   -- convert a name into a pid
   if type(pid) == 'string' then
     if pid == "$self" then
       pid = current
+    end
+  elseif type(pid) == 'table' then
+    if pid[1] == 'group' then
+      assert(type(pid[2]) == 'string','missing group name')
+      is_group = true
+    elseif pid[2] == 'remote' then
+      error('sending to a remote is not supported yet')
     else
-      pid = Name.lookup(pid)
+      error('unsupported pid type')
     end
   end
   
@@ -195,19 +204,41 @@ function Reactor.send(current,pid,interval,timeout,...)
       interval,0,...)
     return true, timer
   else
-    local process = Pid.lookup(pid)
-    if process then
-      -- add the message to the mailbox, will return true if a match
-      -- found
-      if process._mailbox:insert(...) then
-        -- add the process to the list of things to run
-        RunQueue:enter(process)
-        -- and start the idler back
-        reactor:start_idle()
+    local need_to_start = false
+
+    if is_group then
+      local members = Group.get(pid[2])
+      for i = 1, #members do
+        need_to_start = Reactor._send(members[i],...) or need_to_start
       end
+    elseif is_remote then
+      need_to_start = Reactor._send(pid[2],...)
+    else
+      if Reactor._send(pid,...) then
+        reactor:start_idle()
+       end
+    end
+    if need_to_start then
+      reactor:start_idle()
     end
   end
   return true
+end
+
+function Reactor._send(pid,...)
+  if type(pid) == 'string' then
+    pid = Name.lookup(pid)
+  end
+  local process = Pid.lookup(pid)
+  if process then
+    -- add the message to the mailbox, will return true if a match
+    -- found
+    if process._mailbox:insert(...) then
+      -- add the process to the list of things to run
+      RunQueue:enter(process)
+      return true
+    end
+  end
 end
 
 -- causes the current process to be put at the back of the RunQueue

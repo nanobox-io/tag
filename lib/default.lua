@@ -15,7 +15,7 @@ return
   ,database_path = './database'
   ,node_wait_for_response_interval = 2000
   ,nodes_in_cluster = 
-    {{name = 'n1', host = "127.0.0.1", port = 1234}}
+    {n1 = {host = "127.0.0.1", port = 1234}}
   ,needed_quorum = 2
   ,max_packets_per_interval = 2
   ,systems = {}}

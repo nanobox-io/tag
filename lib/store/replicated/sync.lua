@@ -10,7 +10,7 @@
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
-local Sync = Cauterize.Supervisor:entend()
+local Sync = Cauterize.Supervisor:extend()
 
 function Sync:_manage()
 

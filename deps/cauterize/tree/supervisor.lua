@@ -24,6 +24,8 @@ function Supervisor:_init()
   self._maps = {}
   self._pids = {}
   self.restart_strategy = 'one'
+  assert(type(self._manage) == 'function',
+  	'supervisor is missing its manage block')
   self:_manage()
   -- now I need to start up all child processes
   for idx,child in pairs(self._children) do
@@ -69,6 +71,7 @@ end
 function Supervisor:start_child(child,idx)
   -- catch an error if the child fails to start
   local fun = function()
+
     local opts = self._children[idx]
     local pid,link = child.class:new(self:current(),unpack(opts.args))
     self._maps[link] = {idx,pid}
