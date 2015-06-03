@@ -19,7 +19,7 @@ function Node:_init(config)
 
   -- dynamic config options
   self.needed_quorum = Cauterize.Fsm.call('config', 'register',
-  	self:current(), 'needed_quorum', 'quorum_update')
+    self:current(), 'needed_quorum', 'quorum_update')
   self.node_wait_for_response_intreval = Cauterize.Fsm.call('config',
     'register', self:current(), 'node_wait_for_response_interval',
     'udpate_config')
@@ -71,16 +71,16 @@ function Node.down:down(who)
 end
 
 function Node.up:suspicious(who)
-	self.suspicious_reporter = who
-	Node.up.down(self,who)
+  self.suspicious_reporter = who
+  Node.up.down(self,who)
 end
 
 function Node:set_remote_report(who,node_is_up)
-	if node_is_up and 
-			self.suspicious_reporter and who == 
-			self.suspicious_reporter then
-		self.suspicious_reporter = nil
-	end
+  if node_is_up and 
+      self.suspicious_reporter and who == 
+      self.suspicious_reporter then
+    self.suspicious_reporter = nil
+  end
   -- cancel a timer if one was created
   if self.timers[who] then
     self:cancel_timer(self.timers[who])
@@ -104,11 +104,11 @@ function Node.up:start_timer(who)
 end
 
 function Node:get_state()
-	if self.suspicious_reporter then
-		return "suspicious"
-	else
-	  return self.state
-	 end
+  if self.suspicious_reporter then
+    return "suspicious"
+  else
+    return self.state
+   end
 end
 
 function Node:change_state_if_quorum_satisfied()
