@@ -42,16 +42,16 @@ function Group.leave(pid,name)
 end
 
 function Group.get(name)
-	local group = groups[name]
-	members = {}
-	if group then
-		local count = 1
-		for pid in pairs(group) do
-			members[count] = pid
-			count = count + 1
-		end
-	end
-	return members
+  local group = groups[name]
+  members = {}
+  if group then
+    local count = 1
+    for pid in pairs(group) do
+      members[count] = pid
+      count = count + 1
+    end
+  end
+  return members
 end
 
 -- clean up any mapping when the process exits
