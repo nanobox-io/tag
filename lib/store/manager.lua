@@ -20,15 +20,15 @@ local ConfigLoader = require('./config_loader')
 local Store = Cauterize.Supervisor:extend()
 
 function Store:_manage()
-	if Cauterize.Supervisor.call('config','get','replicated_db') then
-	  log.info('enabling replicated mode')
-	  self:manage(Replication)
-	      :manage(Sync,'supervisor')
-	else
-		log.info('enabling single node')
-	  self:manage(Basic)
-	end
-	self:manage(ConfigLoader)
+  if Cauterize.Supervisor.call('config','get','replicated_db') then
+    log.info('enabling replicated mode')
+    self:manage(Replication)
+        :manage(Sync,'supervisor')
+  else
+    log.info('enabling single node')
+    self:manage(Basic)
+  end
+  self:manage(ConfigLoader)
 end
 
 return Store
