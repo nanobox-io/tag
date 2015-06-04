@@ -16,10 +16,10 @@ local json = require('json')
 local ConfigLoader = Cauterize.Supervisor:extend()
 
 function ConfigLoader:_init()
-	local dont_update = ConfigLoader.call('config','get','replicated_db')
+  local dont_update = ConfigLoader.call('config','get','replicated_db')
 
-	-- load all the systems from the config file into the db, but only
-	-- if a system with the same name does not exist
+  -- load all the systems from the config file into the db, but only
+  -- if a system with the same name does not exist
   local systems = ConfigLoader.call('config','get','systems')  
   for name,system in pairs(systems) do
     local data = system.data
@@ -27,7 +27,7 @@ function ConfigLoader:_init()
     if dont_update then
       local exists = ConfigLoader.call('store','fetch','system',name)
       if exists[1] then
-      	break
+        break
       end
     end
 
@@ -46,10 +46,10 @@ function ConfigLoader:_init()
   local exists = ConfigLoader.call('store','fetch','nodes',node_name)
 
   if not exists[1] then
-  	for name,node in pairs(nodes) do
-  		ConfigLoader.call('store','enter','nodes',name,
-  			json.stringify(node))
-  	end
+    for name,node in pairs(nodes) do
+      ConfigLoader.call('store','enter','nodes',name,
+        json.stringify(node))
+    end
 end
 
 return ConfigLoader
