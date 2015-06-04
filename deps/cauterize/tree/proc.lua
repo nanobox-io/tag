@@ -83,9 +83,9 @@ end
 
 -- respond to a _link_call request
 function Proc:respond(ref,ret)
-	if ref ~= nil and ret ~= nil then
-	  local pid,ref = unpack(ref)
-	  self:send(pid,ref,ret)
+  if ref ~= nil and ret ~= nil then
+    local pid,ref = unpack(ref)
+    self:send(pid,ref,ret)
  end
 end
 
