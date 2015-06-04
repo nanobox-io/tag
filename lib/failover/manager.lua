@@ -13,14 +13,14 @@ local Cauterize = require('cauterize')
 local Node = require('./node')
 local Packet = require('./packet')
 local log = require('logger')
+local utl = require('../util')
 
 local Nodes = Cauterize.Supervisor:extend()
 
 function Nodes:_manage()
   -- start a process for each node in the cluster for monitoring.
-  local nodes = Cauterize.Server.call('config', 'register',
-  	self:current(), 'nodes_in_cluster', 'update_nodes')
-  log.debug('managing nodes',nodes)
+  local nodes = utl.config_watch(self:current(), 'nodes_in_cluster',
+  	'update_nodes')
   if nodes then
     for name in pairs(nodes) do
       local opts =

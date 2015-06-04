@@ -13,6 +13,7 @@ local Cauterize = require('cauterize')
 local Name = require('cauterize/lib/name')
 local uv = require('uv')
 local log = require('logger')
+local utl = require('../util')
 local Packet = Cauterize.Fsm:extend()
 
 function Packet:_init(host,port,node,skip)
@@ -28,17 +29,17 @@ function Packet:_init(host,port,node,skip)
   self.packet = nil
 
   -- dynamic config options
-  self.node = node or Cauterize.Fsm.call('config', 'get', 'node_name')
-  local gossip_config = Cauterize.Fsm.call('config', 'get',
-    'nodes_in_cluster')[self.node]
+  p('setting up packet server')
+  self.node = node or utl.config_get('node_name')
+  local gossip_config = utl.config_get('nodes_in_cluster')[self.node]
   uv.udp_bind(self.udp, host or gossip_config.host,
     port or gossip_config.port)
-  self.max_packets_per_interval = Cauterize.Fsm.call('config', 'register',
-    self:current(), 'max_packets_per_interval', 'update_config')
+  self.max_packets_per_interval = utl.config_watch(self:current(),
+    'max_packets_per_interval', 'update_config')
   
   self.nodes = {}
-  local nodes = Cauterize.Fsm.call('config', 'register',
-    self:current(), 'nodes_in_cluster', 'update_nodes')
+  local nodes = utl.config_watch(self:current(), 'nodes_in_cluster',
+    'update_nodes')
   for name,node in pairs(nodes) do
     node.name = name
     self:add_node(node)

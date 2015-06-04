@@ -14,6 +14,8 @@ local log = require('logger')
 local file = require('fs')
 local lmmdb = require('lmmdb')
 local json = require('json')
+local splode = require('splode')
+splode.logger = log.warning
 
 local Config = require('./config')
 local Store = require('./store/manager')

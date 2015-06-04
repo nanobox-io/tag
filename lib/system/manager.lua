@@ -11,15 +11,31 @@
 
 local Cauterize = require('cauterize')
 local System = require('./system')
+local log = require('logger')
+local utl = require('../util')
 
 local Manager = Cauterize.Supervisor:extend()
 
 function Manager:_manage()
-  local systems = Cauterize.Fsm.call('config', 'get', 'systems')
-  if systems then
-    for _,system in pairs(systems) do
-      self:manage(System,{args = system})
+  local node_name = utl.config_get('node_name')
+  local nodes_in_cluster = utl.config_get('nodes_in_cluster')
+  local alive_systems = nodes_in_cluster[node_name].systems
+  local enabled = 0
+  if alive_systems then
+    local systems = utl.config_get('systems')
+    for _,system_name in pairs(alive_systems) do
+      local system_data = systems[system_name]
+      if system_data then
+        log.info('configuring system',system_name,system_data)
+        enabled = enabled + 1
+        self:manage(System,{args = {system_name,system_data}})
+      else
+        log.warning('unknown system',system_name)
+      end
     end
+   end
+   if enabled == 0 then
+     log.info('entering arbitration mode, no systems enabled')
   end
 end
 

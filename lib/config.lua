@@ -11,18 +11,17 @@
 
 local Cauterize = require('cauterize')
 local Name = require('cauterize/lib/name')
-local Link = require('cauterize/lib/link')
 local Config = Cauterize.Server:extend()
 local defaults = require('./default')
 
 function Config:_init(custom)
-	if not custom then
-		self.config = {}
-	else
-	  self.config = custom
- end
- self._registered = {}
- Name.register(self:current(),'config')
+  if not custom then
+    self.config = {}
+  else
+    self.config = custom
+  end
+  self._registered = {}
+  Name.register(self:current(),'config')
 end
 
 function Config:get(key)
@@ -30,50 +29,26 @@ function Config:get(key)
   if value == nil then
     value = defaults[key]
   end
-  return value
+  return {true,value}
 end
 
 function Config:set(key, value)
   if self.config[key] ~= value then 
     self.config[key] = value
-    self:broadcast(key, value, 'set')
+    return {true,false}
   end
-  return true
+  return {true,true}
 end
 
-function Config:broadcast(key, value, type)
-	local registered_listeners = self._registered[key]
-  if registered_listeners then
-    for pid, fun in paris(registered_listeners) do
-      Cauterize.Server.cast(pid, fun, key, value, type)
-    end
-  end
-end
-
-function Config:register(pid, key, fun)
-  local registered_listeners = self._registered[key]
-  if not registered_listeners then
-    registered_listeners = {}
-    self._registered[key] = registered_listeners
-  end
-  registered_listeners[pid] = fun
-
-  -- monitor so that when the process dies it can be removed
-	Link.monitor(pid, self:current())
-
+-- if this is called it is because the node is not replicated. nothing
+-- can change in the config this way, so this is a NOOP
+function Config:register(pid, key)
   return self:get(key)
 end
 
-function Config:unregister(pid, key)
-  local registered_listeners = self._registered[key]
-  if registered_listeners then
-    registered_listeners[pid] = nil
-  end
-  return true
-end
-
-function Config:close(...)
-	assert(false, 'process died and needs to be removed from config')
+-- NOOP
+function Config:unregister()
+	return {true}
 end
 
 return Config

@@ -10,10 +10,12 @@
 ----------------------------------------------------------------------
 
 local uv = require('uv')
+local ffi = require('ffi')
 local log = require('logger')
 local Cauterize = require('cauterize')
 -- local Json = require('Json')
 local Plan = require('./plan')
+local util = require ('../util')
 local Name = require('cauterize/lib/name')
 local Group = require('cauterize/lib/group')
 
@@ -24,18 +26,19 @@ local topologies =
   ,replicated = true
   ,round_robin = true}
 
-function System:_init(system)
-	-- this might need to be dynamic
-  self.system = Cauterize.Fsm.call('config', 'get', system)
+function System:_init(name,system)
+  -- this might need to be dynamic
+  self.system = system
 
   self.state = 'disabled'
-  self.node_id = Cauterize.Fsm.call('config', 'get', 'node_name')
+  self.node_id = util.config_get('node_name')
   if topologies[self.system.topology] then
     self.topology = require('./topology/' .. self.system.topology)
   else
     error('unknown topology '..self.system.topology)
   end
-  Name.register(self:current(), self.system.name)
+  self.name = name
+  Name.register(self:current(), 'system-' .. name)
   Group.join(self:current(),'systems')
 
   
@@ -45,11 +48,11 @@ function System:_init(system)
   -- so that we don't have to deal with it being there when it should
   -- not be
   local elems = self:run('load')
+  self.nodes = {}
+  self.node_order = {}
   self.plan = Plan:new(elems)
   self._on = {}
   self:apply()
-
-  self:send_after('$self',1000,'$cast',{'enable'})
 end
 
 -- create the states for this Fsm
@@ -57,7 +60,7 @@ System.disabled = {}
 System.enabled = {}
 
 function System.disabled:enable()
-  p('enabling system')
+  log.info('enabling system',self.name)
   self.state = 'enabled'
   self:regen()
 end
@@ -68,19 +71,16 @@ function System.enabled:disable()
 end
 
 function System:regen()
-  p('called regen')
   if self.state == 'disabled' then
     -- clear everything out
     self._on = {}
   else
-    -- i need to get the data stored in the system
-    local ret = Cauterize.Server.call('config', 'get',
-      self.system.name .. '-data')
-    -- assert(ret[1], 'unable to get data nodes for system', ret[2])
 
+    local ret = System.call('store','fetch','system-' .. self.name)
     -- divide it over the alive nodes in the system, and store the
     -- results for later
-    self._on = self.topology(ret[2], self.nodes, self.node_id)
+    self._on = self.topology(ret[2], self.node_order, self.nodes,
+      self.node_id)
   end
 
   if self.apply_timeout then
@@ -92,7 +92,7 @@ function System:regen()
   -- we do this incase multiple changes in nodes being up/down come in
   -- a small amount of time and can be coalesed into a single change
   -- in the plan
-  self.apply_timeout = {self:send_after('$self', 1000, '$call',
+  self.apply_timeout = {self:send_after('$self', 2000, '$call',
     {'apply'}, self._current_call),self._current_call}
 end
 
@@ -101,31 +101,39 @@ end
 function System:apply()
   self.plan:next(self._on)
   local add, remove = self.plan:changes()
+  for _,array in pairs({add,remove}) do
+    for idx,elem in pairs(array) do
+      array[idx] = elem:get_data()
+    end
+  end
+
+  log.info('applying new system',{'add',add},{'remove',remove})
   for _, elem in pairs(add) do
-    log.info('bringing up', self.system.name, elem.data)
+    log.info('bringing up', self.name, elem)
     self:run('up', elem)
   end
   for _, elem in pairs(remove) do
-    log.info('taking down', self.system.name, elem.data)
+    log.info('taking down', self.name, elem)
     self:run('down', elem)
   end
-  log.info('system has stabalized', self.system.name)
+  log.info('system has stabalized', self.name)
   return {true}
 end
 
 -- run a script for an element of the system
 function System:run(name, elem)
-  if self.system[name] then
+  local script = self.system[name]
+  if script then
     local data
     if elem then
-      data = elem.data
+      data = elem
     end
-    log.debug('going to run', self.system[name], data)
+    log.info('going to run', script, data)
     local io_pipe = uv.new_pipe(false)
     
-    local proc = self:wrap(uv.spawn, self.system[name],
+    local proc = self:wrap(uv.spawn, script,
       {args = 
-        {data}
+        {data,'testing'}
       ,stdio = 
         {io_pipe,io_pipe,2}})
     assert(self:wrap(uv.read_start, io_pipe) == io_pipe)
@@ -145,27 +153,80 @@ function System:run(name, elem)
 
     self:close(proc)
     self:close(io_pipe)
-    log.debug('result of running script',code,stdout)
+    if code == 0 then
+      log.debug('result of running script',code,stdout)
+    else
+      log.warning('result of running script',code,stdout)
+    end
+  end
+end
+
+
+function System:node_important(node,nodes_in_cluster)
+  local systems = nodes_in_cluster[node].systems
+  if systems then
+    for _,name in pairs(systems) do
+      if name == self.name then
+        return true
+      end
+    end
+  end
+  return false
+end
+
+local function sort_nodes(nodes,system)
+  return function (node1,node2)
+    local node1_priority
+    local node2_priority
+    
+    local priorities = nodes[node1].priority
+    if priorities then
+      node1_priority = priorities[system]
+    end
+    priorities = nodes[node2].priority
+    if priorities then
+      node2_priority = priorities[system]
+    end
+
+    if node1_priority and node2_priority then
+      return node1_priority < node2_priority
+    elseif node1_priority then
+      return true
+    elseif node2_priority then
+      return false
+    else
+      return node1 < node2
+    end
   end
 end
 
 -- notify this system that a node came online
 function System:up(node)
-  self.nodes[node] = true
-  if node == self.nodes_id then
-    Cauterize.Fsm.send(self:current(), 'enable')
-  else
-    self:regen()
+  local nodes_in_cluster = util.config_get('nodes_in_cluster')
+  if self:node_important(node,nodes_in_cluster) then
+    if self.nodes[node] == nil then
+      self.node_order[#self.node_order + 1] = node
+      table.sort(self.node_order,sort_nodes(nodes_in_cluster,self.name))
+    end
+    self.nodes[node] = true
+    if node == self.node_id then
+      self:send(self:current(), '$cast', {'enable'})
+    else
+      self:regen()
+    end
   end
 end
 
 -- notify this system that a node went offline
 function System:down(node)
-  self.nodes[node] = false
-  if node == self.nodes_id then
-    Cauterize.Fsm.send(self:current(), 'disable')
-  else
-    self:regen()
+  local nodes_in_cluster = util.config_get('nodes_in_cluster')
+  if self:node_important(node,nodes_in_cluster) then
+    self.nodes[node] = false
+    if node == self.node_id then
+      self:send(self:current(), '$cast', {'disable'})
+    else
+      self:regen()
+    end
   end
 end
 

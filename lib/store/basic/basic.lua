@@ -16,6 +16,7 @@ local Splode = require('splode')
 local splode, xsplode = Splode.splode, Splode.xsplode
 local hrtime = require('uv').hrtime
 local hash = require('./hash').crc32_string
+local utl = require('../../util')
 
 local db = require('lmmdb')
 local Env = db.Env
@@ -32,10 +33,18 @@ typedef struct {
   long hash; // hash of the combo key
   long update; // last update time
   long creation; // creation date
+  int len; // length of char string
   char data[1]; // first char of the string data
 } element_t;
 ]]
 -- we really want to use set/get methods
+element = ffi.metatype("element_t", 
+  {__index = 
+    {get_data = function(self)
+      local pointer = ffi.cast('intptr_t',self)
+      pointer = pointer + 28
+      return ffi.string(ffi.cast('void*',pointer),self.len)
+    end}})
 
 local Basic = Cauterize.Server:extend()
 
@@ -43,7 +52,7 @@ local Basic = Cauterize.Server:extend()
 -- the store and setting everything up
 function Basic:_init()
   -- this should come from the config file
-  local path = Cauterize.Server.call('config','get','database_path')
+  local path = utl.config_get('database_path')
   local err
   self.env = splode(Env.create, 'unable to create store enviroment')
 
@@ -118,13 +127,13 @@ function Basic:enter(bucket, key, value, parent)
         bucket, key, Txn.MDB_NODUPDATA)
     end
 
-    -- create an empty object. 24 for 3 longs, #value for the data, 1
-    -- for the NULL terminator
+    -- create an empty object. 24 for 3 longs, 4 for 1 int #value for
+    -- the data, 1 for the NULL terminator
     -- MDB_RESERVE returns a pointer to the memory reserved and stored
     -- for the key combo
     local data = splode(Txn.put, 
       'unable to store value for ' .. combo, txn ,self.objects ,combo,
-      24 + #value + 1, Txn.MDB_RESERVE)
+      24 + 4 + #value + 1, Txn.MDB_RESERVE)
 
     -- set the creation and update time to be now.
     local container = ffi.new("element_t*", data)
@@ -137,10 +146,11 @@ function Basic:enter(bucket, key, value, parent)
       container.update = hrtime()
     end
 
-    -- copy in the actual data we are storing, 16 should be the right
+    -- copy in the actual data we are storing, 28 should be the right
     -- offset
-    local pos = ffi.cast('intptr_t',data) + 16
-    ffi.copy(ffi.cast('void *', pos), value, #value)
+    local pos = ffi.cast('intptr_t',data) + 28
+    container.len = #value
+    ffi.copy(ffi.cast('void *', pos), value, container.len)
 
     -- commit the transaction
     err = xsplode(0, Txn.commit, 
