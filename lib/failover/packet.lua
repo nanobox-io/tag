@@ -29,6 +29,7 @@ function Packet:_init(host,port,node,skip)
   self.packet = nil
 
   -- dynamic config options
+  p('setting up packet server')
   self.node = node or utl.config_get('node_name')
   local gossip_config = utl.config_get('nodes_in_cluster')[self.node]
   uv.udp_bind(self.udp, host or gossip_config.host,

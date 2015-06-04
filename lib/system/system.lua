@@ -15,6 +15,7 @@ local log = require('logger')
 local Cauterize = require('cauterize')
 -- local Json = require('Json')
 local Plan = require('./plan')
+local util = require ('../util')
 local Name = require('cauterize/lib/name')
 local Group = require('cauterize/lib/group')
 
@@ -30,7 +31,7 @@ function System:_init(name,system)
   self.system = system
 
   self.state = 'disabled'
-  self.node_id = Cauterize.Fsm.call('config', 'get', 'node_name')
+  self.node_id = util.config_get('node_name')
   if topologies[self.system.topology] then
     self.topology = require('./topology/' .. self.system.topology)
   else
@@ -201,8 +202,7 @@ end
 
 -- notify this system that a node came online
 function System:up(node)
-	local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
-    'nodes_in_cluster')
+	local nodes_in_cluster = util.config_get('nodes_in_cluster')
   if self:node_important(node,nodes_in_cluster) then
     if self.nodes[node] == nil then
       self.node_order[#self.node_order + 1] = node
@@ -219,8 +219,7 @@ end
 
 -- notify this system that a node went offline
 function System:down(node)
-	local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
-    'nodes_in_cluster')
+	local nodes_in_cluster = util.config_get('nodes_in_cluster')
   if self:node_important(node,nodes_in_cluster) then
     self.nodes[node] = false
     if node == self.node_id then

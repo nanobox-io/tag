@@ -12,15 +12,16 @@
 local Cauterize = require('cauterize')
 local log = require('logger')
 local json = require('json')
+local utl = require('../util')
 
 local ConfigLoader = Cauterize.Supervisor:extend()
 
 function ConfigLoader:_init()
-  local dont_update = ConfigLoader.call('config','get','replicated_db')
+  local dont_update = utl.config_get('replicated_db')
 
   -- load all the systems from the config file into the db, but only
   -- if a system with the same name does not exist
-  local systems = ConfigLoader.call('config','get','systems')  
+  local systems = utl.config_get('systems')  
   for name,system in pairs(systems) do
     local data = system.data
     system.data = nil
@@ -41,11 +42,12 @@ function ConfigLoader:_init()
 
   -- load all nodes in the config file into the database, but only if
   -- the current node isn't in it.
-  local node_name = ConfigLoader.call('config','get','node_name')
-  local nodes = ConfigLoader.call('config','get','node_name')
+  local node_name = utl.config_get('node_name')
+  log.info('checking if the config needs to be loaded into the db')
   local exists = ConfigLoader.call('store','fetch','nodes',node_name)
 
   if not exists[1] then
+  	local nodes = utl.config_get('nodes_in_cluster')
     for name,node in pairs(nodes) do
       ConfigLoader.call('store','enter','nodes',name,
         json.stringify(node))
