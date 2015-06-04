@@ -175,34 +175,34 @@ function System:node_important(node,nodes_in_cluster)
 end
 
 local function sort_nodes(nodes,system)
-	return function (node1,node2)
-		local node1_priority
-		local node2_priority
-		
-		local priorities = nodes[node1].priority
-		if priorities then
-			node1_priority = priorities[system]
-		end
-		priorities = nodes[node2].priority
-		if priorities then
-			node2_priority = priorities[system]
-		end
+  return function (node1,node2)
+    local node1_priority
+    local node2_priority
+    
+    local priorities = nodes[node1].priority
+    if priorities then
+      node1_priority = priorities[system]
+    end
+    priorities = nodes[node2].priority
+    if priorities then
+      node2_priority = priorities[system]
+    end
 
-		if node1_priority and node2_priority then
-			return node1_priority < node2_priority
-		elseif node1_priority then
-			return true
-		elseif node2_priority then
-			return false
-		else
-			return node1 < node2
-		end
-	end
+    if node1_priority and node2_priority then
+      return node1_priority < node2_priority
+    elseif node1_priority then
+      return true
+    elseif node2_priority then
+      return false
+    else
+      return node1 < node2
+    end
+  end
 end
 
 -- notify this system that a node came online
 function System:up(node)
-	local nodes_in_cluster = util.config_get('nodes_in_cluster')
+  local nodes_in_cluster = util.config_get('nodes_in_cluster')
   if self:node_important(node,nodes_in_cluster) then
     if self.nodes[node] == nil then
       self.node_order[#self.node_order + 1] = node
@@ -219,7 +219,7 @@ end
 
 -- notify this system that a node went offline
 function System:down(node)
-	local nodes_in_cluster = util.config_get('nodes_in_cluster')
+  local nodes_in_cluster = util.config_get('nodes_in_cluster')
   if self:node_important(node,nodes_in_cluster) then
     self.nodes[node] = false
     if node == self.node_id then

@@ -21,9 +21,9 @@ function Node:_init(config)
 
   -- dynamic config options
   self.needed_quorum = util.config_watch(self:current(), 'needed_quorum',
-  	'quorum_update')
+    'quorum_update')
   self.node_wait_for_response_intreval = util.config_watch(self:current(),
-  	'node_wait_for_response_interval', 'udpate_config')
+    'node_wait_for_response_interval', 'udpate_config')
   
   self.reports = {}
   self.timers = {}
