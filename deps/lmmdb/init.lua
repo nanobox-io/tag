@@ -446,10 +446,6 @@ end
 
 function build_return(value,cast)
   if cast then
-    if ffi.sizeof(cast) < value[0].mv_size then
-      p("cast looses precision",cast,ffi.sizeof(cast),
-        value[0].mv_size)
-    end
     return ffi.cast(cast,value[0].mv_data)
   elseif value then
     return ffi.string(value[0].mv_data,value[0].mv_size)

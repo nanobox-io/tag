@@ -9,12 +9,13 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
+-- each node has one data point associated with it, they never move
 return function(data,order,state,id)
   for idx,name in pairs(order) do
     if name == id then
       is_alive = state[name]
       if is_alive then
-        return {data[idx % #data +1 ]}
+        return {data[idx]}
       end
     end
   end

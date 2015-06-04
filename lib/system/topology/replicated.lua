@@ -8,3 +8,7 @@
 -- @end
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
+
+return function(data)
+  return data
+end

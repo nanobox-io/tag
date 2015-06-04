@@ -12,6 +12,7 @@
 local Cauterize = require('cauterize')
 local System = require('../lib/system/system')
 local Config = require('../lib/config')
+local Store = require('../lib/store/basic/basic')
 
 local Reactor = Cauterize.Reactor
 Reactor.continue = true -- don't exit when nothing is left
@@ -22,6 +23,7 @@ require('tap')(function (test)
     local call_works = false
     Reactor:enter(function(env)
       Config:new(env:current())
+      Store:new(env:current())
 
       local opts = 
         {topology = 'nothing'
@@ -29,12 +31,11 @@ require('tap')(function (test)
         ,name = 'test'}
 
       System.call('config','set','test',opts)
-      System.call('config','set','test-data',{})
       local Test = System:extend()
       function Test:test_call()
         call_works = true
       end
-      local pid = Test:new(env:current(),'test')
+      local pid = Test:new(env:current(),'test',opts)
       env:send({'group','systems'},'$cast',{'test_call'})
       enabled = System.call(pid,'enable')
     end)

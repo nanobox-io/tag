@@ -18,13 +18,11 @@ local ConfigLoader = Cauterize.Supervisor:extend()
 function ConfigLoader:_init()
 	local systems = ConfigLoader.call('config','get','systems')
 	for name,system in pairs(systems) do
-		p('loading system into store')
 		local data = system.data
 		system.data = nil
 		ConfigLoader.call('store','enter','system',name,json.stringify(system))
 
 		for idx,data in pairs(data) do
-			p('loading data',idx,data,'system-' .. name,tostring(idx))
 			ConfigLoader.call('store', 'enter', 'system-' .. name,
 				tostring(idx), json.stringify(data))
 		end

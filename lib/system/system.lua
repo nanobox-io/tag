@@ -100,15 +100,21 @@ end
 -- run a set of changes to bring this system to the next step of the
 -- plan
 function System:apply()
-  log.info('applying new system',self._on)
   self.plan:next(self._on)
   local add, remove = self.plan:changes()
+  for _,array in pairs({add,remove}) do
+	  for idx,elem in pairs(array) do
+			array[idx] = elem:get_data()
+		end
+	end
+
+	log.info('applying new system',{'add',add},{'remove',remove})
   for _, elem in pairs(add) do
-    log.info('bringing up', self.name, elem.data)
+    log.info('bringing up', self.name, elem)
     self:run('up', elem)
   end
   for _, elem in pairs(remove) do
-    log.info('taking down', self.name, elem.data)
+    log.info('taking down', self.name, elem)
     self:run('down', elem)
   end
   log.info('system has stabalized', self.name)
@@ -118,18 +124,17 @@ end
 -- run a script for an element of the system
 function System:run(name, elem)
 	local script = self.system[name]
-	p('script',script,name,self.system)
   if script then
     local data
     if elem then
-      data = elem.data
+      data = elem
     end
-    log.info('going to run', script, data, ffi.string(data))
+    log.info('going to run', script, data)
     local io_pipe = uv.new_pipe(false)
     
     local proc = self:wrap(uv.spawn, script,
       {args = 
-        {ffi.string(data),'testing'}
+        {data,'testing'}
       ,stdio = 
         {io_pipe,io_pipe,2}})
     assert(self:wrap(uv.read_start, io_pipe) == io_pipe)
@@ -149,7 +154,11 @@ function System:run(name, elem)
 
     self:close(proc)
     self:close(io_pipe)
-    log.info('result of running script',code,stdout)
+    if code == 0 then
+	    log.debug('result of running script',code,stdout)
+	  else
+	  	log.warning('result of running script',code,stdout)
+	  end
   end
 end
 
@@ -158,7 +167,6 @@ function System:node_important(node)
 	local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
 		'nodes_in_cluster')
 	local systems = nodes_in_cluster[node].systems
-	p('checking',node,systems)
 	if systems then
 		for _,name in pairs(systems) do
 			if name == self.name then
