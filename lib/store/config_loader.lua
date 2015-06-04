@@ -16,17 +16,17 @@ local json = require('json')
 local ConfigLoader = Cauterize.Supervisor:extend()
 
 function ConfigLoader:_init()
-	local systems = ConfigLoader.call('config','get','systems')
-	for name,system in pairs(systems) do
-		local data = system.data
-		system.data = nil
-		ConfigLoader.call('store','enter','system',name,json.stringify(system))
+  local systems = ConfigLoader.call('config','get','systems')
+  for name,system in pairs(systems) do
+    local data = system.data
+    system.data = nil
+    ConfigLoader.call('store','enter','system',name,json.stringify(system))
 
-		for idx,data in pairs(data) do
-			ConfigLoader.call('store', 'enter', 'system-' .. name,
-				tostring(idx), json.stringify(data))
-		end
-	end
+    for idx,data in pairs(data) do
+      ConfigLoader.call('store', 'enter', 'system-' .. name,
+        tostring(idx), json.stringify(data))
+    end
+  end
 end
 
 return ConfigLoader
