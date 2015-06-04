@@ -161,9 +161,7 @@ function System:run(name, elem)
 end
 
 
-function System:node_important(node)
-  local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
-    'nodes_in_cluster')
+function System:node_important(node,nodes_in_cluster)
   local systems = nodes_in_cluster[node].systems
   if systems then
     for _,name in pairs(systems) do
@@ -174,12 +172,41 @@ function System:node_important(node)
   end
   return false
 end
+
+local function sort_nodes(nodes,system)
+	return function (node1,node2)
+		local node1_priority
+		local node2_priority
+		
+		local priorities = nodes[node1].priority
+		if priorities then
+			node1_priority = priorities[system]
+		end
+		priorities = nodes[node2].priority
+		if priorities then
+			node2_priority = priorities[system]
+		end
+
+		if node1_priority and node2_priority then
+			return node1_priority < node2_priority
+		elseif node1_priority then
+			return true
+		elseif node2_priority then
+			return false
+		else
+			return node1 < node2
+		end
+	end
+end
+
 -- notify this system that a node came online
 function System:up(node)
-  if self:node_important(node) then
+	local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
+    'nodes_in_cluster')
+  if self:node_important(node,nodes_in_cluster) then
     if self.nodes[node] == nil then
       self.node_order[#self.node_order + 1] = node
-      table.sort(self.node_order)
+      table.sort(self.node_order,sort_nodes(nodes_in_cluster,self.name))
     end
     self.nodes[node] = true
     if node == self.node_id then
@@ -192,7 +219,9 @@ end
 
 -- notify this system that a node went offline
 function System:down(node)
-  if self:node_important(node) then
+	local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
+    'nodes_in_cluster')
+  if self:node_important(node,nodes_in_cluster) then
     self.nodes[node] = false
     if node == self.node_id then
       self:send(self:current(), '$cast', {'disable'})
