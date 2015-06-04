@@ -103,12 +103,12 @@ function System:apply()
   self.plan:next(self._on)
   local add, remove = self.plan:changes()
   for _,array in pairs({add,remove}) do
-	  for idx,elem in pairs(array) do
-			array[idx] = elem:get_data()
-		end
-	end
+    for idx,elem in pairs(array) do
+      array[idx] = elem:get_data()
+    end
+  end
 
-	log.info('applying new system',{'add',add},{'remove',remove})
+  log.info('applying new system',{'add',add},{'remove',remove})
   for _, elem in pairs(add) do
     log.info('bringing up', self.name, elem)
     self:run('up', elem)
@@ -123,7 +123,7 @@ end
 
 -- run a script for an element of the system
 function System:run(name, elem)
-	local script = self.system[name]
+  local script = self.system[name]
   if script then
     local data
     if elem then
@@ -155,34 +155,34 @@ function System:run(name, elem)
     self:close(proc)
     self:close(io_pipe)
     if code == 0 then
-	    log.debug('result of running script',code,stdout)
-	  else
-	  	log.warning('result of running script',code,stdout)
-	  end
+      log.debug('result of running script',code,stdout)
+    else
+      log.warning('result of running script',code,stdout)
+    end
   end
 end
 
 
 function System:node_important(node)
-	local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
-		'nodes_in_cluster')
-	local systems = nodes_in_cluster[node].systems
-	if systems then
-		for _,name in pairs(systems) do
-			if name == self.name then
-				return true
-			end
-		end
-	end
-	return false
+  local nodes_in_cluster = Cauterize.Fsm.call('config', 'get',
+    'nodes_in_cluster')
+  local systems = nodes_in_cluster[node].systems
+  if systems then
+    for _,name in pairs(systems) do
+      if name == self.name then
+        return true
+      end
+    end
+  end
+  return false
 end
 -- notify this system that a node came online
 function System:up(node)
   if self:node_important(node) then
-  	if self.nodes[node] == nil then
-  		self.node_order[#self.node_order + 1] = node
-  		table.sort(self.node_order)
-  	end
+    if self.nodes[node] == nil then
+      self.node_order[#self.node_order + 1] = node
+      table.sort(self.node_order)
+    end
     self.nodes[node] = true
     if node == self.nodes_id then
       Cauterize.Fsm.send(self:current(), 'enable')
