@@ -52,8 +52,6 @@ function System:_init(name,system)
   self.plan = Plan:new(elems)
   self._on = {}
   self:apply()
-
-  self:send_after('$self',1000,'$cast',{'enable'})
 end
 
 -- create the states for this Fsm
@@ -184,8 +182,8 @@ function System:up(node)
       table.sort(self.node_order)
     end
     self.nodes[node] = true
-    if node == self.nodes_id then
-      Cauterize.Fsm.send(self:current(), 'enable')
+    if node == self.node_id then
+      self:send(self:current(), '$cast', {'enable'})
     else
       self:regen()
     end
@@ -196,8 +194,8 @@ end
 function System:down(node)
   if self:node_important(node) then
     self.nodes[node] = false
-    if node == self.nodes_id then
-      Cauterize.Fsm.send(self:current(), 'disable')
+    if node == self.node_id then
+      self:send(self:current(), '$cast', {'disable'})
     else
       self:regen()
     end

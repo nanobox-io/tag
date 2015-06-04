@@ -50,7 +50,7 @@ function Server:_loop(msg)
     table.remove(msg,1)
     self:_perform(nil,fun,unpack(msg))
   else
-    self:_perform('handle_message',msg,nil)
+    self:_perform(nil,'handle_message',msg)
   end
   self._current_call = nil
 end
