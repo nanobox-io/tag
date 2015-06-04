@@ -13,17 +13,17 @@ local Cauterize = require('cauterize')
 local Name = require('cauterize/lib/name')
 local Group = require('cauterize/lib/group')
 local log = require('logger')
+local util = require('../util')
 local Node = Cauterize.Fsm:extend()
 
 function Node:_init(config)
   self.state = 'down'
 
   -- dynamic config options
-  self.needed_quorum = Cauterize.Fsm.call('config', 'register',
-    self:current(), 'needed_quorum', 'quorum_update')
-  self.node_wait_for_response_intreval = Cauterize.Fsm.call('config',
-    'register', self:current(), 'node_wait_for_response_interval',
-    'udpate_config')
+  self.needed_quorum = util.config_watch(self:current(), 'needed_quorum',
+  	'quorum_update')
+  self.node_wait_for_response_intreval = util.config_watch(self:current(),
+  	'node_wait_for_response_interval', 'udpate_config')
   
   self.reports = {}
   self.timers = {}

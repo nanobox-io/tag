@@ -16,6 +16,7 @@ local Splode = require('splode')
 local splode, xsplode = Splode.splode, Splode.xsplode
 local hrtime = require('uv').hrtime
 local hash = require('./hash').crc32_string
+local utl = require('../../util')
 
 local db = require('lmmdb')
 local Env = db.Env
@@ -51,7 +52,7 @@ local Basic = Cauterize.Server:extend()
 -- the store and setting everything up
 function Basic:_init()
   -- this should come from the config file
-  local path = Cauterize.Server.call('config','get','database_path')
+  local path = utl.config_get('database_path')
   local err
   self.env = splode(Env.create, 'unable to create store enviroment')
 
