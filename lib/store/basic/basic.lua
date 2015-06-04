@@ -145,7 +145,7 @@ function Basic:enter(bucket, key, value, parent)
       container.update = hrtime()
     end
 
-    -- copy in the actual data we are storing, 20 should be the right
+    -- copy in the actual data we are storing, 28 should be the right
     -- offset
     local pos = ffi.cast('intptr_t',data) + 28
     container.len = #value
