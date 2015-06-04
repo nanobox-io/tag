@@ -50,6 +50,7 @@ function ConfigLoader:_init()
       ConfigLoader.call('store','enter','nodes',name,
         json.stringify(node))
     end
+  end
 end
 
 return ConfigLoader
