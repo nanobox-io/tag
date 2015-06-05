@@ -115,12 +115,12 @@ function System:apply()
 
   log.info('applying new system',{'add',add},{'remove',remove})
   for _, elem in pairs(add) do
-    log.info('bringing up', self.name, elem)
-    self:run('up', elem)
+    log.debug('adding', self.name, elem)
+    self:run('add', elem)
   end
   for _, elem in pairs(remove) do
-    log.info('taking down', self.name, elem)
-    self:run('down', elem)
+    log.debug('removing', self.name, elem)
+    self:run('remove', elem)
   end
   log.info('system has stabalized', self.name)
   return {true}
