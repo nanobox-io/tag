@@ -108,8 +108,8 @@ Here are some examples of how to configure Tag for specific tasks:
 You can read about specific features of Tag here:
 - [full list of all config options for Tag with defaults](lib/default.lua)
 - [failure detection and quorum decisions](lib/failover/node.lua)
-- [scripts available in a system and when they are run](lib/system/)
-- [how topologies work and how to create your own](lib/system/topology)
+- [scripts available in a system and when they are run](lib/system#scripts-available-in-a-system)
+- [how topologies work and how to create your own](lib/system/topology#how-do-topologies-work)
 
 
 Copyright (c) 2015 Pagoda Box, Inc.
