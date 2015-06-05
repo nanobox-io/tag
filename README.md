@@ -8,7 +8,7 @@ tag -server -config-json '{}' #start the tag server
 
 Tag makes custom cluster configuration simple. Install tag on the servers that are members of your cluster, configure Tag correctly, and then your cluster should be able to survive nodes going offline, being overloaded, etc.
 
-Tag is a gossiping member detection layer that can pass data to and run predefined scripts when nodes go offline or come online. The original reason for tag was as a replacement for the [vippy](https://github.com/postwait/vippy) project. At [Pagodabox](https://pagodabox.io) we were using vippy to move virtual ip address from node to node but it was simply using too much ram. 180Mb to move a single ip between two nodes in our system. It doesn't seem like a lot, but running 100+ vippy instances on a single hypervisor was eating up 8 GB of ram. 8 GB of ram to move 100 ip addresses was not really acceptable.
+Tag is a gossiping member detection layer that can pass data to and run predefined scripts when nodes go offline or come online. The original reason for tag was as a replacement for the [vippy](https://github.com/postwait/vippy) project. At [Pagoda Box](https://pagodabox.io) we were using vippy to move virtual ip address from node to node but it was simply using too much ram. 180Mb to move a single ip between two nodes in our system. It doesn't seem like a lot, but running 100+ vippy instances on a single hypervisor was eating up 8 GB of ram. 8 GB of ram to move 100 ip addresses was not really acceptable.
 
 So thats why Tag was created.
 
