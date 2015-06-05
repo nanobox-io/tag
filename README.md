@@ -19,7 +19,7 @@ Tag runs on [luvit](https://luvit.io) which brings "Asynchronous I/O to [lua](ht
 The idea behind Tag is that you mark nodes in your cluster as being members of subgroups called systems. You can have a load balancer system, a virtual ip system, a worker system, a queue system, basically anything you can create can be a system. Those systems have scripts associated with them that are run when the cluster agrees that certain events have happened, for example a node going offline. Those scripts are passed any data that applies to the node that Tag is running on.
 
 ## Let's get real
-Lets see how this works in real life. Say you now work at foobar co, and have a cluster of [nginx](http://nginx.org) proxies for the production api which allows customers, to order widgets (go ecommerce!). Your boss assigned you to ensure that the api is available even if one of the nginx nodes is offline. There are a couple of options you could go with, but you decided to go with Tag because you had recently read about other people sucessfully using it and wanted to give it a shot.
+Lets see how this works in real life. Say you now work at FooBar co., and have a cluster of [nginx](http://nginx.org) proxies for the production api which allows customers, to order widgets (go ecommerce!). Your boss assigned you to ensure that the api is available even if one of the nginx nodes is offline. There are a couple of options you could go with, but you decided to go with Tag because you had recently read about other people sucessfully using it and wanted to give it a shot.
 
 ```bash
 ## install lit, the npm of luvit!
@@ -29,7 +29,7 @@ curl -L https://github.com/luvit/lit/raw/master/get-lit.sh | sh
 lit make pagodabox/tag && cp ./tag /usr/bin/tag
 ```
 
-So you install Tag on 3 nodes in your cluster to ensure that it can make a quorum decision (n/2+1), and you start to write a config file for Tag. Lets say that the three nodes are: Primary at 10.0.0.1, Secondary at 10.0.0.2, and Tertiary at 10.0.0.3. The nginx ip failover config you wrote would look like this so far (but you already knew that):
+So you install Tag on 3 nodes in your cluster to ensure that it can make a quorum decision (n/2+1), and you start to write a config file. Lets say that the three nodes are: Primary at 10.0.0.1, Secondary at 10.0.0.2, and Tertiary at 10.0.0.3. The nginx ip failover config you wrote would look like this so far (but you already knew that):
 
 ```bash
 tag -server -config-json '
@@ -46,7 +46,7 @@ tag -server -config-json '
     ,"port": 1234}}'
 ```
 
-the command above will start a single Tag node and start it looking for the other two nodes in the cluster. If the other nodes are started the entire cluster will be online and available, but will not do anything yet. Thats not quite what you need at foobar co, so you write a few small helper scripts so that Tag knows what to do when a node comes online.
+the command above will start a single Tag node and start it looking for the other two nodes in the cluster. If the other nodes are started the entire cluster will be online and available, but will not do anything yet. Thats not quite what you need at FooBar co., so you write a few small helper scripts so that Tag knows what to do when a node comes online.
 
 A system consists of 6 scripts that can be run: install, load, enable, disable, add, remove. But in this case you use just 3 of them: load, add and remove.
 
@@ -66,7 +66,7 @@ ifconfig eth0:0 $1 up
 ifconfig eth0:0 down
 ```
 
-You install these three scripts in some sane location on the 3 nodes in the nginx cluster, lets say `/var/db/tag/scripts/ip`, and update the config so that Tag knows everything it needs to keep the foobar co api online for the widgeteers (the customers who purchae widgets). Here is what the updated config looks like you clever config writter:
+You install these three scripts in some sane location on the 3 nodes in the nginx cluster, lets say `/var/db/tag/scripts/ip`, and update the config so that Tag knows everything it needs to keep the FooBar co. api online for the widgeteers (the customers who purchae widgets). Here is what the updated config looks like you clever config writter:
 
 ```bash
 tag -server -config-json '
@@ -75,16 +75,16 @@ tag -server -config-json '
   {"Primary":
     {"host": "10.0.0.1"
     ,"port": 1234
-    ,"systems": {"foobar co NGINX": 1}}
+    ,"systems": {"FooBar co. NGINX": 1}}
   ,"Secondary":
     {"host":"10.0.0.2"
     ,"port": 1234
-    ,"systems": {"foobar co NGINX": 2}}
+    ,"systems": {"FooBar co. NGINX": 2}}
   ,"Tertiary":
     {"host":"10.0.0.3"
     ,"port": 1234}
 "systems":
-  {"foobar co NGINX":
+  {"FooBar co. NGINX":
     {"add": "/var/db/tag/scripts/ip/add"
     ,"remove": "/var/db/tag/scripts/ip/remove"
     ,"load": "/var/db/tag/scripts/ip/load"
@@ -92,7 +92,7 @@ tag -server -config-json '
     ,"topology": "round_robin"}}}'
 ```
 
-Primary and Secondary will now start the 'foobar co NGINX' system and decide which node should have the Virtual Ip: '10.0.10.1'. When one node goes offline, the other node will add '10.0.10.1' to its interface and things will continue to run smoothly. Now foobar co, and more importantly you, can sleep well at night knowing that the production api for ordering widgets is being taken care of by Tag. If it does go offline the only question you will need to ask is: "who just deployed to prod?"
+Primary and Secondary will now start the 'FooBar co. NGINX' system and decide which node should have the Virtual Ip: '10.0.10.1'. When one node goes offline, the other node will add '10.0.10.1' to its interface and things will continue to run smoothly. Now FooBar co., and more importantly you, can sleep well at night knowing that the production api for ordering widgets is being taken care of by Tag. If it does go offline the only question you will need to ask is: "who just deployed to prod?"
 
 As a side note the config can also be stored in a file and then passed in like so:
 
