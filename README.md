@@ -111,4 +111,6 @@ You can read about specific features of Tag here:
 - [scripts available in a system and when they are executed](lib/system#scripts-available-in-a-system)
 - [how topologies work and how to create your own](lib/system/topology#how-do-topologies-work)
 
+And as always, fork and contribute!
+
 Copyright (c) 2015 Pagoda Box, Inc.
