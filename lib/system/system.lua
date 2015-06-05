@@ -43,7 +43,11 @@ function System:_init(name,system)
 
   
   self.apply_timeout = nil
-  
+
+  -- the the system needs to set it self up, it will have an install
+  -- script
+	self:run('install')
+
   -- this should clear out everything that is currently on this node
   -- so that we don't have to deal with it being there when it should
   -- not be
@@ -62,26 +66,28 @@ System.enabled = {}
 function System.disabled:enable()
   log.info('enabling system',self.name)
   self.state = 'enabled'
+  self:run('enable')
   self:regen()
 end
 
 function System.enabled:disable()
   self.state = 'disabled'
-  self:regen()
+  self._on = {}
+  if self.apply_timeout then
+    self:cancel_timer(self.apply_timeout[1])
+    self:respond(self.apply_timeout[2],{false,'inturrupted'})
+  end
+  self:apply()
+  self:run('disable')
 end
 
 function System:regen()
-  if self.state == 'disabled' then
-    -- clear everything out
-    self._on = {}
-  else
 
-    local ret = System.call('store','fetch','system-' .. self.name)
-    -- divide it over the alive nodes in the system, and store the
-    -- results for later
-    self._on = self.topology(ret[2], self.node_order, self.nodes,
-      self.node_id)
-  end
+  local ret = System.call('store','fetch','system-' .. self.name)
+  -- divide it over the alive nodes in the system, and store the
+  -- results for later
+  self._on = self.topology(ret[2], self.node_order, self.nodes,
+    self.node_id)
 
   if self.apply_timeout then
     self:cancel_timer(self.apply_timeout[1])
