@@ -26,7 +26,7 @@ return function(data,order,state,id)
   for _,elem in pairs(data) do
   	-- data.hash is the crc32 hash of the data, it should give us good
   	-- enough distribution as a hashing key for jch
-  	if jch(data.hash,count) == bucket then
+  	if jch(elem.hash,count) == bucket then
   		elems[#elems + 1] = elem
   	end
   end
