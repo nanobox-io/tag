@@ -1,6 +1,6 @@
 #Tag
 
-###tldr; You shoud probably be using tag in your cluster in some way.
+###tldr; You should probably be using tag in your cluster in some way.
 
 ```bash
 tag -server -config-json '{}' #start the tag server
@@ -19,7 +19,7 @@ Tag runs on [luvit](https://luvit.io) which brings "Asynchronous I/O to [lua](ht
 The idea behind Tag is that you mark nodes in your cluster as being members of subgroups called systems. You can have a load balancer system, a virtual ip system, a worker system, a queue system, basically anything you can create can be a system. Those systems have scripts associated with them that are run when the cluster agrees that certain events have happened, for example a node going offline. Those scripts are passed any data that applies to the node that Tag is running on.
 
 ## Let's get real
-Lets see how this works in real life. Say you now work at FooBar co., and have a cluster of [nginx](http://nginx.org) proxies for the production api which allows customers, to order widgets (go ecommerce!). Your boss assigned you to ensure that the api is available even if one of the nginx nodes is offline. There are a couple of options you could go with, but you decided to go with Tag because you had recently read about other people sucessfully using it and wanted to give it a shot.
+Lets see how this works in real life. Say you now work at FooBar co., and have a cluster of [nginx](http://nginx.org) proxies for the production api which allows customers, to order widgets (go ecommerce!). Your boss assigned you to ensure that the api is available even if one of the nginx nodes is offline. There are a couple of options you could go with, but you decided to go with Tag because you had recently read about other people successfully using it and wanted to give it a shot.
 
 ```bash
 ## install lit, the npm of luvit!
@@ -66,7 +66,7 @@ ifconfig eth0:0 $1 up
 ifconfig eth0:0 down
 ```
 
-You install these three scripts in some sane location on the 3 nodes in the nginx cluster, lets say `/var/db/tag/scripts/ip`, and update the config so that Tag knows everything it needs to keep the FooBar co. api online for the widgeteers (the customers who purchase widgets). Here is what the updated config looks like you clever config writter:
+You install these three scripts in some sane location on the 3 nodes in the nginx cluster, lets say `/var/db/tag/scripts/ip`, and update the config so that Tag knows everything it needs to keep the FooBar co. api online for the widgeteers (the customers who purchase widgets). Here is what the updated config looks like you clever config writer:
 
 ```bash
 tag -server -config-json '
@@ -106,9 +106,9 @@ Here are some examples of how to configure Tag for specific tasks:
 (If you have a specific example you would like to contribute, open a pull request and we will merge it in.)
 
 You can read about specific features of Tag here:
-- [full list of all config options for Tag with defaults](lib/default.lua)
+- [full list of all configuration options for Tag with defaults](lib/default.lua)
 - [failure detection and quorum decisions](lib/failover/node.lua)
-- [scripts available in a system and when they are run](lib/system#scripts-available-in-a-system)
+- [scripts available in a system and when they are executed](lib/system#scripts-available-in-a-system)
 - [how topologies work and how to create your own](lib/system/topology#how-do-topologies-work)
 
 
