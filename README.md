@@ -92,7 +92,9 @@ tag -server -config-json '
     ,"topology": "round_robin"}}}'
 ```
 
-Primary and Secondary will now start the 'FooBar co. NGINX' system and decide which node should have the Virtual Ip: '10.0.10.1'. When one node goes offline, the other node will add '10.0.10.1' to its interface and things will continue to run smoothly. Now FooBar co., and more importantly you, can sleep well at night knowing that the production api for ordering widgets is being taken care of by Tag. If it does go offline the only question you will need to ask is: *"who just deployed to prod?"*
+Primary and Secondary will now start the 'FooBar co. NGINX' system and decide which node should have the Virtual Ip: '10.0.10.1'. When one node goes offline, the other node will add '10.0.10.1' to its interface and things will continue to run smoothly. Now FooBar co., and more importantly you, can sleep well at night knowing that the production api for ordering widgets is being taken care of by Tag. If it does go offline the only question you will need to ask is: 
+
+#### *"who just deployed to prod?"*
 
 As a side note the config can also be stored in a file and then passed in like so:
 
@@ -111,6 +113,6 @@ You can read about specific features of Tag here:
 - [scripts available in a system and when they are executed](lib/system#scripts-available-in-a-system)
 - [how topologies work and how to create your own](lib/system/topology#how-do-topologies-work)
 
-And as always, fork and contribute!
+##And as always, fork and contribute!
 
 Copyright (c) 2015 Pagoda Box, Inc.
