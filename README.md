@@ -103,13 +103,13 @@ tag -server -config-file /path/to/tag.config
 Here are some examples of how to configure Tag for specific tasks:
 - [virtual ip failover]()
 
-(If you have an example you would like to contribute, open a pull request and we will merge it in.)
+(If you have a specific example you would like to contribute, open a pull request and we will merge it in.)
 
 You can read about specific features of Tag here:
-- [full list of all config options for Tag with defaults](tree/master/lib/config.lua)
-- [failure detection and quorum decisions](tree/master/lib/failover/node.lua)
-- [scripts available in a system and when they are run](tree/master/lib/system/)
-- [how topologies work and how to create your own](tree/master/lib/system/topology)
+- [full list of all config options for Tag with defaults](lib/config.lua)
+- [failure detection and quorum decisions](lib/failover/node.lua)
+- [scripts available in a system and when they are run](lib/system/)
+- [how topologies work and how to create your own](lib/system/topology)
 
 
 Copyright (c) 2015 Pagoda Box, Inc.
