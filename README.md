@@ -1,6 +1,6 @@
 #Tag
 
-###tldr; You should probably be using tag in your cluster in some way.
+###tldr; You should use Tag in your cluster.
 
 ```bash
 tag -server -config-json '{}' #start the tag server
@@ -110,6 +110,5 @@ You can read about specific features of Tag here:
 - [failure detection and quorum decisions](lib/failover/node.lua)
 - [scripts available in a system and when they are executed](lib/system#scripts-available-in-a-system)
 - [how topologies work and how to create your own](lib/system/topology#how-do-topologies-work)
-
 
 Copyright (c) 2015 Pagoda Box, Inc.
