@@ -48,7 +48,7 @@ tag -server -config-json '
 
 the command above will start a single Tag node and start it looking for the other two nodes in the cluster. If the other nodes are started the entire cluster will be online and available, but will not do anything yet. Thats not quite what you need at FooBar co., so you write a few small helper scripts so that Tag knows what to do when a node comes online.
 
-A system consists of 6 scripts that can be run: install, load, enable, disable, add, remove. But in this case you use just 3 of them: load, add and remove.
+A system consists of 6 scripts that can be run: install, load, enable, disable, add, remove. But for this simple project you use just 3 of them: load, add and remove.
 
 ```bash
 !#/bin/env bash
@@ -66,7 +66,7 @@ ifconfig eth0:0 $1 up
 ifconfig eth0:0 down
 ```
 
-You install these three scripts in some sane location on the 3 nodes in the nginx cluster, lets say `/var/db/tag/scripts/ip`, and update the config so that Tag knows everything it needs to keep the FooBar co. api online for the widgeteers (the customers who purchae widgets). Here is what the updated config looks like you clever config writter:
+You install these three scripts in some sane location on the 3 nodes in the nginx cluster, lets say `/var/db/tag/scripts/ip`, and update the config so that Tag knows everything it needs to keep the FooBar co. api online for the widgeteers (the customers who purchase widgets). Here is what the updated config looks like you clever config writter:
 
 ```bash
 tag -server -config-json '
