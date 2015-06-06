@@ -48,7 +48,7 @@ tag -server -config-json '
 
 the command above will start a single Tag node and start it looking for the other two nodes in the cluster. If the other nodes are started the entire cluster will be online and available, but will not do anything yet. Thats not quite what you need at FooBar co., so you write a few small helper scripts so that Tag knows what to do when a node comes online.
 
-A system consists of 6 scripts that can be run: install, load, enable, disable, add, remove. But for this simple project you use just 3 of them: load, add and remove.
+A system consists of 8 scripts that can be run: install, load, enable, disable, add, remove, up, down. But for this simple project you use just 3 of them: load, add and remove.
 
 ```bash
 !#/bin/env bash

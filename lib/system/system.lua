@@ -206,6 +206,10 @@ local function sort_nodes(nodes,system)
   end
 end
 
+-- TODO automatically transitioning to enabled and disabled should be
+-- based on a quorum of nodes in the SYSTEM not the cluster. this will
+-- allow systems that are partially alive to still function.
+
 -- notify this system that a node came online
 function System:up(node)
   local nodes_in_cluster = util.config_get('nodes_in_cluster')
@@ -216,10 +220,11 @@ function System:up(node)
     end
     self.nodes[node] = true
     if node == self.node_id then
-      self:send(self:current(), '$cast', {'enable'})
+      self:enable()
     else
       self:regen()
     end
+    self:run('up', node)
   end
 end
 
@@ -229,10 +234,11 @@ function System:down(node)
   if self:node_important(node,nodes_in_cluster) then
     self.nodes[node] = false
     if node == self.node_id then
-      self:send(self:current(), '$cast', {'disable'})
+      self:disable()
     else
       self:regen()
     end
+    self:run('down', node)
   end
 end
 

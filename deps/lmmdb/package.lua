@@ -24,4 +24,4 @@ return
     {"**.lua"
     ,"**.so"
     ,"!examples"
-    ,"!tests"}}
+    ,"!test"}}

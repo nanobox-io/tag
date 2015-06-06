@@ -7,4 +7,6 @@ todo: document this better
 - enable
 - add
 - remove
+- up
+- down
 - disable
