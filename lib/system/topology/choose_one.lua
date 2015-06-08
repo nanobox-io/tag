@@ -15,7 +15,7 @@ return function(data,order,state,id)
     if name == id then
       is_alive = state[name]
       if is_alive then
-        return {data[idx]}
+        return {data[(idx - 1) % #data + 1]}
       end
     end
   end

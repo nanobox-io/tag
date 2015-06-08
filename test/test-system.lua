@@ -26,7 +26,7 @@ require('tap')(function (test)
       Store:new(env:current())
 
       local opts = 
-        {topology = 'nothing'
+        {topology = 'nothing:nothing[1,2,3]'
         ,load = 'date'
         ,name = 'test'}
 

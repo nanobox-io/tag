@@ -9,6 +9,11 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
-return function(...)
-  return {}
+-- return at most, num elements
+return function(data,order,state,id,num)
+	local elems = {}
+	for i = 1, tonumber(num) do
+		elems[i] = data[i]
+	end
+  return elems
 end

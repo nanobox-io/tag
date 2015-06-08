@@ -102,13 +102,19 @@ function Proc:_start(parent,ref,...)
   self:send(parent,ref)
 
   -- enter the main recv loop
+  local sucess
   repeat
     local msg = self:recv(nil,self.recv_timeout)
     self.recv_timeout = nil -- do we want to clear this out every time?
-    local ret = self:_loop(msg)
+    sucess = {pcall(function() self:_loop(msg) end)}
+    self.need_stop = self.need_stop or not sucess[1]
   until self.need_stop
   
   self:_destroy()
+
+  if not sucess[1] then
+  	error(sucess[2])
+  end
 end
 
 return Proc

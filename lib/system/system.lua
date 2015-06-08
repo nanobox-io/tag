@@ -20,11 +20,6 @@ local Name = require('cauterize/lib/name')
 local Group = require('cauterize/lib/group')
 
 local System = Cauterize.Fsm:extend()
-local topologies = 
-  {choose_one = true
-  ,nothing = true
-  ,replicated = true
-  ,round_robin = true}
 
 function System:_init(name,system)
   -- this might need to be dynamic
@@ -32,11 +27,7 @@ function System:_init(name,system)
 
   self.state = 'disabled'
   self.node_id = util.config_get('node_name')
-  if topologies[self.system.topology] then
-    self.topology = require('./topology/' .. self.system.topology)
-  else
-    error('unknown topology '..self.system.topology)
-  end
+	self:build_topology(self.system.topology)
   self.name = name
   Name.register(self:current(), 'system-' .. name)
   Group.join(self:current(),'systems')
@@ -44,9 +35,15 @@ function System:_init(name,system)
   
   self.apply_timeout = nil
 
+  -- if the system has been defined as additional code to be loaded in
+  -- Tag, then lets load it.
+  if system.install == 'code:' then
+  	self.code = loadstring(system.code)()
+  end
+
   -- the the system needs to set it self up, it will have an install
   -- script
-	self:run('install')
+  self:run('install')
 
   -- this should clear out everything that is currently on this node
   -- so that we don't have to deal with it being there when it should
@@ -57,6 +54,34 @@ function System:_init(name,system)
   self.plan = Plan:new(elems)
   self._on = {}
   self:apply()
+end
+
+local topologies = 
+  {choose_one = true
+  ,nothing = true
+  ,replicated = true
+  ,round_robin = true}
+
+function System:build_topology(description)
+	local topology = function(data) return data end
+	local wrap = function(top,arg,before)
+		return function(data,order,nodes,id)
+			data = before(data,order,nodes,id)
+			return top(data,order,nodes,id,arg)
+		end
+	end
+	p('going to parse topology',description)
+	description:gsub("([^:]*):?",function(match)
+		match:gsub('(%w*)[[]?([^]]*)]?',function(fun,arg)
+			if fun ~= '' then
+				if arg == '' then arg = nil end
+				local level = topologies[fun]
+				assert(level,'unknown topology: '..fun)
+				topology = wrap(require('./topology/' .. fun),arg,topology)
+			end
+		end)
+	end)
+	self.topology = topology
 end
 
 -- create the states for this Fsm
@@ -86,8 +111,12 @@ function System:regen()
   local ret = System.call('store','fetch','system-' .. self.name)
   -- divide it over the alive nodes in the system, and store the
   -- results for later
-  self._on = self.topology(ret[2], self.node_order, self.nodes,
-    self.node_id)
+  if ret[1] then
+	  self._on = self.topology(ret[2], self.node_order, self.nodes,
+	    self.node_id)
+	else
+		self._on = {}
+	end
 
   if self.apply_timeout then
     self:cancel_timer(self.apply_timeout[1])
@@ -128,41 +157,50 @@ end
 
 -- run a script for an element of the system
 function System:run(name, elem)
-  local script = self.system[name]
-  if script then
-    local data
-    if elem then
-      data = elem
+  if self.code then
+    if type(self.code[name]) == 'function' then
+    	local ret = {pcall(function() self.code[name](elem) end)}
+    	if not ret[1] then
+    		logger.warning('script failed to run',ret[2])
+    	end
     end
-    log.info('going to run', script, data)
-    local io_pipe = uv.new_pipe(false)
-    
-    local proc = self:wrap(uv.spawn, script,
-      {args = 
-        {data,'testing'}
-      ,stdio = 
-        {io_pipe,io_pipe,2}})
-    assert(self:wrap(uv.read_start, io_pipe) == io_pipe)
-    local code
-    local stdout = {}
-
-    -- collect run information
-    repeat
-      local msg = self:recv({io_pipe,proc})
-      if msg[1] == io_pipe then
-        stdout[#stdout + 1] = msg[3]
-      else
-        code = msg[2]
-        break
+  else
+    local script = self.system[name]
+    if script then
+      local data
+      if elem then
+        data = elem
       end
-    until false
+      log.info('going to run', script, data)
+      local io_pipe = uv.new_pipe(false)
+      
+      local proc = self:wrap(uv.spawn, script,
+        {args = 
+          {data,'testing'}
+        ,stdio = 
+          {io_pipe,io_pipe,2}})
+      assert(self:wrap(uv.read_start, io_pipe) == io_pipe)
+      local code
+      local stdout = {}
 
-    self:close(proc)
-    self:close(io_pipe)
-    if code == 0 then
-      log.debug('result of running script',code,stdout)
-    else
-      log.warning('result of running script',code,stdout)
+      -- collect run information
+      repeat
+        local msg = self:recv({io_pipe,proc})
+        if msg[1] == io_pipe then
+          stdout[#stdout + 1] = msg[3]
+        else
+          code = msg[2]
+          break
+        end
+      until false
+
+      self:close(proc)
+      self:close(io_pipe)
+      if code == 0 then
+        log.debug('result of running script',code,stdout)
+      else
+        log.warning('result of running script',code,stdout)
+      end
     end
   end
 end

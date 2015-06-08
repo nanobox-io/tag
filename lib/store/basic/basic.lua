@@ -98,7 +98,7 @@ end
 
 -- enter a new bucket, key and value into the database, returns an
 -- error or the update time of the data
-function Basic:enter(bucket, key, value, parent)
+function Basic:enter(bucket, key, value, timestamp, parent)
   local txn = nil
 
   -- captures results into either {true, results} or {false, error}
@@ -119,7 +119,7 @@ function Basic:enter(bucket, key, value, parent)
     if prev then
       creation = prev.creation
     else
-      creation = hrtime()
+      creation = timestamp or hrtime()
 
       -- add the key to the bucket table.
       xsplode(0, Txn.put,
@@ -143,7 +143,7 @@ function Basic:enter(bucket, key, value, parent)
       container.update = creation
       container.hash = hash(combo)
     else
-      container.update = hrtime()
+      container.update = timestamp or hrtime()
     end
 
     -- copy in the actual data we are storing, 28 should be the right
