@@ -46,7 +46,7 @@ function System:_init(name,system)
 
   -- the the system needs to set it self up, it will have an install
   -- script
-	self:run('install')
+  self:run('install')
 
   -- this should clear out everything that is currently on this node
   -- so that we don't have to deal with it being there when it should
