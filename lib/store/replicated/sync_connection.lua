@@ -6,14 +6,10 @@
 -- @doc
 --
 -- @end
--- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
+-- Created :   9 June 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
-local Sync = Cauterize.Supervisor:extend()
+local SyncConnection = Cauterize.Fsm:extend()
 
-function Sync:_manage()
-
-end
-
-return Sync
+return SyncConnection

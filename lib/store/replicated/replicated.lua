@@ -94,11 +94,11 @@ end
 
 function Replicated:load_store_system(txn)
 	local store = 
-		{topology = 'max[3]:choose_one'
+		{topology = 'max[3]:choose_one_or_all'
 		,data = 'nodes'
 		,install = 'code:'
-		,code = bundle.readfile('lib/store/replicated/sync-store')}
-	Store.enter(self,'systems','store',json.stringify(store),txn)
+		,code = bundle.readfile('lib/store/replicated/sync-leader')}
+	Store.enter(self,'systems','sync',json.stringify(store),txn)
 end
 
 return Replicated
