@@ -20,22 +20,22 @@ local SyncLeader = {}
 local manager = nil
 
 function SyncLeader:enable()
-	local current = Cauterize.Reactor.current()
-	manager = Manager:new(current)
+  local current = Cauterize.Reactor.current()
+  manager = Manager:new(current)
 end
 
 function SyncLeader:disable()
-	Manager:call(manager,'stop')
-	manager = nil
+  Manager:call(manager,'stop')
+  manager = nil
 end
 
 function SyncLeader:add(elem)
-	Manager:call(manager,'add_child',SyncConnection,
-		{name = elem.host,args = elem})
+  Manager:call(manager,'add_child',SyncConnection,
+    {name = elem.host,args = elem})
 end
 
 function SyncLeader:remove(elem)
-	Manager:call(manager,'remove_child',elem.host)
+  Manager:call(manager,'remove_child',elem.host)
 end
 
 

@@ -11,9 +11,9 @@
 
 -- return at most, num elements
 return function(data,order,state,id,num)
-	local elems = {}
-	for i = 1, tonumber(num) do
-		elems[i] = data[i]
-	end
+  local elems = {}
+  for i = 1, tonumber(num) do
+    elems[i] = data[i]
+  end
   return elems
 end

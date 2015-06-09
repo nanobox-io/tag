@@ -27,7 +27,7 @@ function System:_init(name,system)
 
   self.state = 'disabled'
   self.node_id = util.config_get('node_name')
-	self:build_topology(self.system.topology)
+  self:build_topology(self.system.topology)
   self.name = name
   Name.register(self:current(), 'system-' .. name)
   Group.join(self:current(),'systems')
@@ -38,7 +38,7 @@ function System:_init(name,system)
   -- if the system has been defined as additional code to be loaded in
   -- Tag, then lets load it.
   if system.install == 'code:' then
-  	self.code = loadstring(system.code)()
+    self.code = loadstring(system.code)()
   end
 
   -- the the system needs to set it self up, it will have an install
@@ -63,25 +63,25 @@ local topologies =
   ,round_robin = true}
 
 function System:build_topology(description)
-	local topology = function(data) return data end
-	local wrap = function(top,arg,before)
-		return function(data,order,nodes,id)
-			data = before(data,order,nodes,id)
-			return top(data,order,nodes,id,arg)
-		end
-	end
-	p('going to parse topology',description)
-	description:gsub("([^:]*):?",function(match)
-		match:gsub('(%w*)[[]?([^]]*)]?',function(fun,arg)
-			if fun ~= '' then
-				if arg == '' then arg = nil end
-				local level = topologies[fun]
-				assert(level,'unknown topology: '..fun)
-				topology = wrap(require('./topology/' .. fun),arg,topology)
-			end
-		end)
-	end)
-	self.topology = topology
+  local topology = function(data) return data end
+  local wrap = function(top,arg,before)
+    return function(data,order,nodes,id)
+      data = before(data,order,nodes,id)
+      return top(data,order,nodes,id,arg)
+    end
+  end
+  p('going to parse topology',description)
+  description:gsub("([^:]*):?",function(match)
+    match:gsub('(%w*)[[]?([^]]*)]?',function(fun,arg)
+      if fun ~= '' then
+        if arg == '' then arg = nil end
+        local level = topologies[fun]
+        assert(level,'unknown topology: '..fun)
+        topology = wrap(require('./topology/' .. fun),arg,topology)
+      end
+    end)
+  end)
+  self.topology = topology
 end
 
 -- create the states for this Fsm
@@ -112,11 +112,11 @@ function System:regen()
   -- divide it over the alive nodes in the system, and store the
   -- results for later
   if ret[1] then
-	  self._on = self.topology(ret[2], self.node_order, self.nodes,
-	    self.node_id)
-	else
-		self._on = {}
-	end
+    self._on = self.topology(ret[2], self.node_order, self.nodes,
+      self.node_id)
+  else
+    self._on = {}
+  end
 
   if self.apply_timeout then
     self:cancel_timer(self.apply_timeout[1])
@@ -159,10 +159,10 @@ end
 function System:run(name, elem)
   if self.code then
     if type(self.code[name]) == 'function' then
-    	local ret = {pcall(function() self.code[name](elem) end)}
-    	if not ret[1] then
-    		logger.warning('script failed to run',ret[2])
-    	end
+      local ret = {pcall(function() self.code[name](elem) end)}
+      if not ret[1] then
+        logger.warning('script failed to run',ret[2])
+      end
     end
   else
     local script = self.system[name]

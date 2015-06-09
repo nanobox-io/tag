@@ -13,16 +13,16 @@
 -- the data array, then return all data points, if it is larger, then
 -- choose_one from the data array
 return function(data,order,state,id)
-	local index
-	for i = 1, #order do
-		if order[i] == id then
-			if i < #data then
-				return data
-			end
-			index = i
-			break
-		end
-	end
+  local index
+  for i = 1, #order do
+    if order[i] == id then
+      if i < #data then
+        return data
+      end
+      index = i
+      break
+    end
+  end
 
   return data[(i - 1) % #data + 1]
 end
