@@ -39,12 +39,11 @@ typedef struct {
 ]]
 -- we really want to use set/get methods
 element = ffi.metatype("element_t", 
-  {__index = 
-    {get_data = function(self)
+  {__tostring = function(self)
       local pointer = ffi.cast('intptr_t',self)
       pointer = pointer + 28
       return ffi.string(ffi.cast('void*',pointer),self.len)
-    end}})
+    end})
 
 local Basic = Cauterize.Server:extend()
 
@@ -248,7 +247,8 @@ function Basic:fetch(bucket, key)
         local container = splode(Txn.get, 
           'unable to get value for key ' .. combo, txn, self.objects, 
           combo, "element_t*")
-        acc[#acc + 1] = container
+        acc[#acc + 1] = id
+        acc[id] = container
 
         -- advance cursor to next key, don't use 'splode because it
         -- errors when out of data points

@@ -13,6 +13,7 @@ local Cauterize = require('cauterize')
 local Name = require('cauterize/lib/name')
 local uv = require('uv')
 local log = require('logger')
+local json = require('json')
 local utl = require('../util')
 local Packet = Cauterize.Fsm:extend()
 
@@ -32,15 +33,21 @@ function Packet:_init(host,port,node,skip)
   p('setting up packet server')
   self.node = node or utl.config_get('node_name')
   local gossip_config = utl.config_get('nodes_in_cluster')[self.node]
+  gossip_config = json.decode(tostring(gossip_config))
   uv.udp_bind(self.udp, host or gossip_config.host,
     port or gossip_config.port)
   self.max_packets_per_interval = utl.config_watch(self:current(),
     'max_packets_per_interval', 'update_config')
+
+  self.max_packets_per_interval = 
+    json.decode(tostring(self.max_packets_per_interval))
   
   self.nodes = {}
   local nodes = utl.config_watch(self:current(), 'nodes_in_cluster',
     'update_nodes')
-  for name,node in pairs(nodes) do
+  for _,name in ipairs(nodes) do
+    local node = nodes[name]
+    node = json.decode(tostring(node))
     node.name = name
     self:add_node(node)
   end

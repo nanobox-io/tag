@@ -16,13 +16,16 @@ return function(data,order,state,id)
   local index
   for i = 1, #order do
     if order[i] == id then
-      if i < #data then
+      if i <= #data then
         return data
       end
       index = i
       break
     end
   end
-
-  return data[(i - 1) % #data + 1]
+  if index == nil then
+    return {}
+  else
+    return {data[(index - 1) % #data + 1]}
+  end
 end

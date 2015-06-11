@@ -171,7 +171,9 @@ function Reactor:_step(process)
       end
       RunQueue:enter(link)
     end
-    p('process died',process._pid,info)
+    if info ~= 'normal' then
+      p('process died',process._pid,info)
+   end
   end
 end
 

@@ -14,10 +14,11 @@ local log = require('logger')
 local file = require('fs')
 local lmmdb = require('lmmdb')
 local json = require('json')
+local Config = require('./config_router')
 local splode = require('splode')
 splode.logger = log.warning
 
-local Config = require('./config')
+
 local Store = require('./store/manager')
 local Failover = require('./failover/manager')
 local System = require('./system/manager')
@@ -37,7 +38,7 @@ if #args == 2 then
 
   local config,err = json.parse(data)
   if config == nil then
-  	error('json was poorly formatted')
+    error('json was poorly formatted')
   end
 
   -- set up the main application supervisor
@@ -46,7 +47,7 @@ if #args == 2 then
     self:manage(Config,{args = {config}, name = 'config'})
         :manage(Store,{type = 'supervisor', name = 'store manager'})
         :manage(Failover,
-        	{type = 'supervisor', name = 'failover manager'})
+          {type = 'supervisor', name = 'failover manager'})
         :manage(System,{type = 'supervisor', name = 'system manager'})
         :manage(Api,{type = 'supervisor', name = 'api manager'})
   end

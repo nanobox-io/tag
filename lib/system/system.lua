@@ -11,9 +11,10 @@
 
 local uv = require('uv')
 local ffi = require('ffi')
+local Require = require('require')
 local log = require('logger')
 local Cauterize = require('cauterize')
--- local Json = require('Json')
+local json = require('json')
 local Plan = require('./plan')
 local util = require ('../util')
 local Name = require('cauterize/lib/name')
@@ -38,7 +39,21 @@ function System:_init(name,system)
   -- if the system has been defined as additional code to be loaded in
   -- Tag, then lets load it.
   if system.install == 'code:' then
-    self.code = loadstring(system.code)()
+    -- is this the right path for the new require?
+    local req, module = Require('bundle:/lib/system/system.lua')
+    local fn = assert(loadstring(system.code,'bundle:/lib/system/system/'..self.name))
+    local global = {
+      module = module,
+      exports = module.exports,
+      require = function (...)
+        return module:require(...)
+      end
+    }
+    setfenv(fn, setmetatable(global, { __index = _G }))
+    self.code = fn()
+    if not self.code then
+      self.code = module.exports
+    end
   end
 
   -- the the system needs to set it self up, it will have an install
@@ -59,6 +74,8 @@ end
 local topologies = 
   {choose_one = true
   ,nothing = true
+  ,max = true
+  ,choose_one_or_all = true
   ,replicated = true
   ,round_robin = true}
 
@@ -72,7 +89,7 @@ function System:build_topology(description)
   end
   p('going to parse topology',description)
   description:gsub("([^:]*):?",function(match)
-    match:gsub('(%w*)[[]?([^]]*)]?',function(fun,arg)
+    match:gsub('([^[]*)[[]?([^]]*)]?',function(fun,arg)
       if fun ~= '' then
         if arg == '' then arg = nil end
         local level = topologies[fun]
@@ -107,16 +124,32 @@ function System.enabled:disable()
 end
 
 function System:regen()
+  local data
+  local data_type = type(self.system.data)
+  if data_type == 'table' then
+    data = self.system.data
+  else
+    if data_type == 'string' then
+      name = self.system.data
+    else
+      name = 'system-' .. self.name
+    end
+    local ret = System.call('store','fetch',name)
+    if ret[1] then
+      data = ret[2]
+      for idx,name in ipairs(data) do
+        data[idx] = data[name]
+        data[name] = nil
+      end
+    else
+      data = {}
+    end
+  end
 
-  local ret = System.call('store','fetch','system-' .. self.name)
   -- divide it over the alive nodes in the system, and store the
   -- results for later
-  if ret[1] then
-    self._on = self.topology(ret[2], self.node_order, self.nodes,
-      self.node_id)
-  else
-    self._on = {}
-  end
+  self._on = self.topology(data, self.node_order, self.nodes,
+    self.node_id)
 
   if self.apply_timeout then
     self:cancel_timer(self.apply_timeout[1])
@@ -136,11 +169,6 @@ end
 function System:apply()
   self.plan:next(self._on)
   local add, remove = self.plan:changes()
-  for _,array in pairs({add,remove}) do
-    for idx,elem in pairs(array) do
-      array[idx] = elem:get_data()
-    end
-  end
 
   log.info('applying new system',{'add',add},{'remove',remove})
   for _, elem in pairs(add) do
@@ -157,12 +185,14 @@ end
 
 -- run a script for an element of the system
 function System:run(name, elem)
-  if self.code then
+  if self.code ~= nil then
     if type(self.code[name]) == 'function' then
-      local ret = {pcall(function() self.code[name](elem) end)}
+      local ret = {pcall(function() self.code[name](self.code,elem) end)}
       if not ret[1] then
-        logger.warning('script failed to run',ret[2])
+        log.warning('script failed to run',ret)
       end
+    else
+      p('skipping script',name,type(self.code[name]))
     end
   else
     local script = self.system[name]
@@ -207,7 +237,9 @@ end
 
 
 function System:node_important(node,nodes_in_cluster)
-  local systems = nodes_in_cluster[node].systems
+  local node = nodes_in_cluster[node]
+  node = json.decode(tostring(node))
+  local systems = node.systems
   if systems then
     for _,name in pairs(systems) do
       if name == self.name then
@@ -219,6 +251,9 @@ function System:node_important(node,nodes_in_cluster)
 end
 
 local function sort_nodes(nodes,system)
+  for key,value in pairs(nodes) do
+    nodes[key] = json.decode(tostring(value))
+  end
   return function (node1,node2)
     local node1_priority
     local node2_priority
@@ -257,8 +292,9 @@ function System:up(node)
       table.sort(self.node_order,sort_nodes(nodes_in_cluster,self.name))
     end
     self.nodes[node] = true
+    p('checking',node,self.node_id)
     if node == self.node_id then
-      self:enable()
+      self[self.state].enable(self)
     else
       self:regen()
     end
@@ -272,7 +308,7 @@ function System:down(node)
   if self:node_important(node,nodes_in_cluster) then
     self.nodes[node] = false
     if node == self.node_id then
-      self:disable()
+      self[self.state].disable(self)
     else
       self:regen()
     end

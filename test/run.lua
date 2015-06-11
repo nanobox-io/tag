@@ -14,7 +14,6 @@ limitations under the License.
 
 local tap = require("tap")
 local uv = require("uv")
-
 local req = uv.fs_scandir("test")
 repeat
   local ent = uv.fs_scandir_next(req)

@@ -19,24 +19,26 @@ local store_collections =
   ,systems = 'systems'}
 
 local in_store =
-  {database_path = true
-  ,node_wait_for_response_interval = true
+  {node_wait_for_response_interval = true
   ,nodes_in_cluster = true
   ,needed_quorum = true
   ,max_packets_per_interval = true
   ,systems = true}
 
 function ConfigRouter:get(key)
+  local value = {false}
   if in_store[key] then
     local collection_name = store_collections[key]
     if collection_name then
-      return ConfigRouter.call('store','fetch',collection_name)
+      value = ConfigRouter.call('store','fetch',collection_name)
     else
-      return ConfigRouter.call('store','fetch','config',key)
+      value = ConfigRouter.call('store','fetch','config',key)
     end
-  else
-    return Config.get(self,key)
   end
+  if not value[1] then
+    value = Config.get(self,key)
+  end
+  return value
 end
 
 -- wrap the set function so that broadcasts are sent

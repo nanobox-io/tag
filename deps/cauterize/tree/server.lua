@@ -39,8 +39,8 @@ end
 function Server:_loop(msg)
 
   local fun,args,ref = unpack(msg)
-  self._current_call = ref
   if fun == '$call' then
+    self._current_call = ref
     self:_perform(ref,unpack(args))
   elseif fun == '$cast' then
     self:_perform(nil,unpack(args))

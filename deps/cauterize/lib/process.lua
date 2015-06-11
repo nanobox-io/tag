@@ -33,6 +33,7 @@ function Process:initialize(start,opts)
   -- a function or a string that maps to a member function on the
   -- current object can be passed in to start the process
   if type(start) ~= 'function' and type(self[start]) ~= 'function' then
+    p(start,opts)
     error('unable to spawn pid without a starting function')
   end
   -- set some defaults
@@ -101,6 +102,9 @@ function Process:initialize(start,opts)
   -- or should it be somewhere else?
   -- we add the pid to the run_queue
   RunQueue:enter(self)
+  -- start the idler if it isn't running (we may be in an event and
+  -- not a process in the reactor)
+  Reactor:start_idle()
 
   -- and we pause this pid if we need to.
   local current = Reactor.current()

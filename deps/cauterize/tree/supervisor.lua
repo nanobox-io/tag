@@ -25,15 +25,15 @@ function Supervisor:_init()
   self._pids = {}
   self.restart_strategy = 'one'
   assert(type(self._manage) == 'function',
-  	'supervisor is missing its manage block')
+    'supervisor is missing its manage block')
   self:_manage()
   -- now I need to start up all child processes
-  for idx,child in pairs(self._children) do
+  for idx,child in ipairs(self._children) do
     self:start_child(child,idx)
   end
 end
 
-function Supervisor:manage(child,opts)
+function Supervisor:new_child(child,opts)
   if not instanceof(child,Proc) then
     error('can not supervise a process that is not based on \'proc\'')
   end
@@ -62,8 +62,13 @@ function Supervisor:manage(child,opts)
   -- start and stop children
   local idx = #self._children +1 
   self._children[idx] = opts
+  self._children[opts.name] = idx
   self._deaths[idx] = 0
+  return idx
+end
 
+function Supervisor:manage(child,opts)
+  self:new_child(child,opts)
   -- so that calls can be chained
   return self
 end
@@ -76,8 +81,8 @@ function Supervisor:start_child(child,idx)
     local pid,link = child.class:new(self:current(),unpack(opts.args))
     self._maps[link] = {idx,pid}
     self._pids[idx] = pid
-    -- do we need to link from parent to child to kill the child if the
-    -- parent exits?
+    -- do we need to link from parent to child to kill the child if
+    -- the parent exits?
     -- TODO: probably
   end
   
@@ -86,6 +91,23 @@ function Supervisor:start_child(child,idx)
     self:check_down(idx)
   end
   
+end
+
+function Supervisor:add_child(child,opts)
+  local idx = self:new_child(child,opts)
+  self:start_child(self._children[idx],idx)
+  return {true}
+end
+
+function Supervisor:remove_child(name)
+  local idx = self._children[name]
+  local child = self._children[idx]
+  local pid = self._pids[idx]
+  self:call(pid,'stop')
+  table.remove(self._children,idx)
+  self._children[name] = nil
+  self._children[idx] = nil
+  self._pids[idx] = nil
 end
 
 function Supervisor:stop()
@@ -112,7 +134,9 @@ end
 
 function Supervisor:check_down(idx)
   local child = self._children[idx]
-  assert(child,"missing child")
+  if not child then
+    return
+  end
 
   -- record this death
   self._deaths[idx] = self._deaths[idx] + 1
