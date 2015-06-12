@@ -56,7 +56,6 @@ function add_group_to_members(members,name,count,is_present)
 end
 
 function Group.get(name)
-  p('going to get',name)
   local members = {}
   local is_present = {}
   local count = 1
