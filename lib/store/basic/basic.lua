@@ -122,7 +122,7 @@ function Basic:enter(bucket, key, value, timestamp, parent)
 
       -- add the key to the bucket table.
       xsplode(0, Txn.put,
-        'unable to add '.. combo ..' to \'buckets\' DB', txn, self.buckets,
+        'unable to add to \'buckets\' DB', txn, self.buckets,
         bucket, key, Txn.MDB_NODUPDATA)
     end
 
@@ -131,7 +131,7 @@ function Basic:enter(bucket, key, value, timestamp, parent)
     -- MDB_RESERVE returns a pointer to the memory reserved and stored
     -- for the key combo
     local data = splode(Txn.put, 
-      'unable to store value for ' .. combo, txn ,self.objects ,combo,
+      'unable to store value', txn ,self.objects ,combo,
       24 + 4 + #value + 1, Txn.MDB_RESERVE)
 
     -- set the creation and update time to be now.
@@ -153,7 +153,7 @@ function Basic:enter(bucket, key, value, timestamp, parent)
 
     -- commit the transaction
     err = xsplode(0, Txn.commit, 
-      'unable to commit transaction for' .. combo, txn)
+      'unable to commit transaction', txn)
 
     -- clear out becuase it is invalid
     txn = nil
@@ -186,7 +186,7 @@ function Basic:remove(bucket, key, parent)
     
     -- begin a transaction, store it in txn so it can be aborted later
     txn = splode(Env.txn_begin, 
-      'store unable to create a transaction ' .. combo, self.env, 
+      'store unable to create a transaction', self.env, 
       parent, 0)
 
     -- delete the object value
@@ -194,11 +194,11 @@ function Basic:remove(bucket, key, parent)
       combo)
 
     -- delete the object key
-    xsplode(0, Txn.del, 'unable to delete object key ' .. combo, txn, 
+    xsplode(0, Txn.del, 'unable to delete object key', txn, 
       self.buckets, bucket, key)
 
     -- commit all changes
-    xsplode(0, Txn.commit, 'unable to commit transaction ' .. combo,
+    xsplode(0, Txn.commit, 'unable to commit transaction',
       txn)
 
     -- clear out because it is invalid
@@ -222,14 +222,14 @@ function Basic:fetch(bucket, key)
     end
     assert(bucket,'unable to list without a bucket')
     -- fetching is a read only transaction, hence MDB_RDONLY
-    txn = splode(Env.txn_begin, 'unable to create txn ' .. bucket, 
-      self.env, nil, Txn.MDB_RDONLY)
+    txn = splode(Env.txn_begin, 'unable to create txn ', self.env,
+      nil, Txn.MDB_RDONLY)
 
     if key then
       -- we are looking up a single value
       local combo = bucket .. ":" .. key
       return splode(Txn.get, 
-        'does not exist ' .. combo, txn, self.objects, combo, 
+        'does not exist', txn, self.objects, combo, 
         "element_t*")
 
     else
@@ -248,7 +248,7 @@ function Basic:fetch(bucket, key)
         
         -- get the value for the current key
         local container = splode(Txn.get, 
-          'unable to get value for key ' .. combo, txn, self.objects, 
+          'unable to get value for key', txn, self.objects, 
           combo, "element_t*")
         acc[#acc + 1] = id
         acc[id] = container

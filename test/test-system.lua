@@ -36,7 +36,7 @@ require('tap')(function (test)
         call_works = true
       end
       local pid = Test:new(env:current(),'test',opts)
-      env:send({'group','systems'},'$cast',{'test_call'})
+      env:send({'group',{'systems'}},'$cast',{'test_call'})
       enabled = System.call(pid,'enable')
     end)
 

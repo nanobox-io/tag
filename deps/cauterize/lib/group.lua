@@ -41,15 +41,32 @@ function Group.leave(pid,name)
   end
 end
 
-function Group.get(name)
-  local group = groups[name]
-  members = {}
+function add_group_to_members(members,group,count,is_present)
   if group then
-    local count = 1
     for pid in pairs(group) do
-      members[count] = pid
-      count = count + 1
+      if not is_present[pid] then
+        is_present[pid] = true
+        members[count] = pid
+        count = count + 1
+      end
     end
+  end
+  return count
+end
+
+function Group.get(name)
+  p('going to get',name)
+  local members = {}
+  local is_present = {}
+  local count = 1
+  if type(name) == 'table' then
+    for _,name in pairs(name) do
+      local group = groups[name]
+      count = add_group_to_members(members,group,count,is_present)
+    end
+  else
+    local group = groups[name]
+    count = add_group_to_members(members,group,count,is_present)
   end
   return members
 end

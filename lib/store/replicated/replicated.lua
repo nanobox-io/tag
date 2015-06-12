@@ -31,16 +31,16 @@ function Replicated:_init()
   
   -- replication stores remote node states, so that on disconnects
   -- replication can resume from where it left off
-  self.replication = splode(DB.open, 'unable to create replication', 
+  self.replication = splode(DB.open, 'unable to create replication',
     txn, "replication", DB.MDB_CREATE)
 
   -- logs records write operations on this node until they are
   -- committed on all nodes connected to this one
   -- MDB_INTEGERKEY because we use timestamps
-  self.logs = splode(DB.open, 'unable to create logs', 
+  self.logs = splode(DB.open, 'unable to create logs',
     txn, "logs", DB.MDB_CREATE + DB.MDB_INTEGERKEY)
 
-  xsplode(0,Txn.commit,
+  xsplode(0, Txn.commit,
     'unable to commit replicated database creation', txn)
 
 end
@@ -58,36 +58,101 @@ function Replicated:prepare(bucket, id)
   return txn, timestamp
 end
 
-function Replicated:finish(txn,status,...)
+function Replicated:finish(txn, status, ...)
   if status[1] then
-    xsplode(0,Txn.commit, 
+    xsplode(0, Txn.commit,
       'unable to commit replicated create txn', txn)
   else
-    xsplode(1,Txn.abort,'unable to abort replicated txn',txn)
+    xsplode(1, Txn.abort, 'unable to abort replicated txn', txn)
     error(status[2])
   end
 
-  self:send({'group','sync'},'$cast',{'sync',...})
+  self:send({'group', 'sync'}, '$cast', {'sync', ...})
 
   return status[2]
 end
 
-function Replicated:enter(bucket,id,value)
+function Replicated:enter(bucket, id, value)
   local args = {}
   return {pcall(function ()
     local txn, timestamp = self:prepare(bucket, id)
-    local status = Store.enter(self,bucket,id,value,timestamp,txn)
+    local status = Store.enter(self, bucket, id, value, timestamp,
+      txn)
     return self:finish(txn, status, timestamp, 'enter', bucket, id)
   end)}
 end
 
-function Replicated:delete(bucket,id)
+function Replicated:delete(bucket, id)
   local args = {}
   return {pcall(function ()
     local txn, timestamp = self:prepare(bucket, id)
-    local status = Store.delete(self,bucket,id,txn)
+    local status = Store.delete(self, bucket, id, txn)
     return self:finish(txn, status, timestamp, 'delete', bucket, id)
   end)}
+end
+
+function Replicated:r_enter(bucket, id, data)
+  local txn
+  local response = {pcall(function()
+    txn = splode(Env.txn_begin,
+      'unable to begin r_enter transaction', self.env, nil, 0)
+
+    local combo = bucket .. ':' .. id
+    local object, err = Txn.get(txn, self.objects, combo,
+      "element_t*")
+    if object == nil or object.update > timestamp then
+      xsplode(0, Txn.put, 'unable to store object key', txn,
+        self.buckets, bucket, id)
+      xsplode(0, Txn.put, 'unable to store object value', txn,
+        self.objects, combo, data)
+    end
+
+    xsplode(0, Txn.commit,
+      'unable to commit r_delete transaction', txn)
+
+    txn = nil
+
+    -- now i need to send this out to connections that are interested
+    if object == nil or object.update > timestamp then
+      self:send({'group', {'peers', bucket, combo}}, '$cast',
+        {'r_delete', bucket, id, data})
+    end
+  end)}
+  if txn then
+    Txn.abort(txn)
+  end
+  return response
+end
+
+function Replicated:r_delete(bucket, id, timestamp)
+  local txn
+  local response = {pcall(function()
+    txn = splode(Env.txn_begin,
+      'unable to begin r_delete transaction', self.env, nil, 0)
+
+    local combo = bucket .. ':' .. id
+    local object = Txn.get(txn, self.objects, combo, "element_t*")
+
+    if object and object.update > timestamp then
+      xsplode(0, Txn.del, 'unable to delete object', txn,
+        self.objects, combo)
+    end
+
+    xsplode(0, Txn.commit,
+      'unable to commit r_delete transaction', txn)
+
+    txn = nil
+
+    -- now i need to send this out to connections that are interested
+    if object.update > timestamp then
+      self:send({'group', {'peers', bucket, combo}}, '$cast',
+        {'r_delete', bucket, id, timestamp})
+    end
+  end)}
+  if txn then
+    Txn.abort(txn)
+  end
+  return response
 end
 
 return Replicated

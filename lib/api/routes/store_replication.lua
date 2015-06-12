@@ -17,7 +17,9 @@ ffi = require('ffi')
 local params_for_cmds =
   {fetch = 2
   ,enter = 3
-  ,remove = 2}
+  ,remove = 2
+  ,r_remove = 3
+  ,r_enter = 3}
 
 
 local function execute(write,params)
@@ -46,7 +48,12 @@ exports.route = require('weblit-websocket')({},
   function(req,read,write)
     for frame in read do
       local params = json.decode(frame.payload)
-      assert(params_for_cmds[params[1]] == #params - 1)
-      execute(write,params)
+      if params_for_cmds[params[1]] == nil then
+        write('unknown command')
+      elseif params_for_cmds[params[1]] == #params - 1 then
+        write('wrong number of params for function')
+      else
+        execute(write,params)
+      end
     end
   end)

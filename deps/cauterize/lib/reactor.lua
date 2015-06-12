@@ -192,7 +192,9 @@ function Reactor.send(current,pid,interval,timeout,...)
     end
   elseif type(pid) == 'table' then
     if pid[1] == 'group' then
-      assert(type(pid[2]) == 'string','missing group name')
+      local kind = type(pid[2])
+      assert(kind == 'string' or kind == 'table',
+        'missing group name')
       is_group = true
     elseif pid[2] == 'remote' then
       error('sending to a remote is not supported yet')
