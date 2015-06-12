@@ -13,7 +13,6 @@ Process = require('cauterize/lib/process')
 Server = require('cauterize/tree/server')
 mime = require('mime')
 
-
 exports.method = 'GET'
 exports.path = '/store/:bucket/:key'
 exports.route = function(req,res)

@@ -173,7 +173,7 @@ function Reactor:_step(process)
     end
     if info ~= 'normal' then
       p('process died',process._pid,info)
-   end
+    end
   end
 end
 

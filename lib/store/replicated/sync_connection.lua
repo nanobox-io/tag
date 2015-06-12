@@ -20,6 +20,8 @@ function SyncConnection:_init(config)
   self.state = 'disconnected'
   self._recv_timeout = 0
   self.config = config
+  Group.join(self:current(),'sync')
+  p('joined the sync group',config)
 end
 
 -- set up the states
@@ -32,6 +34,10 @@ function SyncConnection.disconnected:timeout()
     ,path = '/connect'}
     p('going to connect to',opts)
   p('got',websocket(opts,config,request))
+end
+
+function SyncConnection:sync(...)
+  p('sync connection got:',...)
 end
 
 return SyncConnection

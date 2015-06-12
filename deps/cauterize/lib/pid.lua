@@ -14,7 +14,7 @@ local Pid = {}
 local pids = {}
 local next_pid = 1
 local total_pids = 0
-local max_pids = 100
+local max_pids = 10000
 
 
 -- this could be better. its needs to take into account service
@@ -25,8 +25,10 @@ function Pid.next()
     next_pid = next_pid + 1
     if next_pid > max_pids then
       next_pid = 1
+      p('wrapping',max_pids,total_pids)
     end
   end
+  total_pids = total_pids + 1
   return next_pid
 end
 

@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------
 
 local Store = require('../basic/basic')
+local Group = require('cauterize/lib/group')
 local Replicated = Store:extend()
 
 local hrtime = require('uv').hrtime
@@ -50,14 +51,14 @@ function Replicated:prepare(bucket, id)
     'unable to begin replicated create transaction', self.env, nil,
     0)
 
-  -- xsplode(0, Txn.put,
-  --  'unable to store in \'replication\' DB', txn, self.replication,
-  --  timestamp, bucket .. ':' .. id, Txn.MDB_NODUPDATA)
+  xsplode(0, Txn.put,
+    'unable to store in \'replication\' DB', txn, self.replication,
+    timestamp, bucket .. ':' .. id, Txn.MDB_NODUPDATA)
 
   return txn, timestamp
 end
 
-function Replicated:finish(txn,status,timestamp,type)
+function Replicated:finish(txn,status,...)
   if status[1] then
     xsplode(0,Txn.commit, 
       'unable to commit replicated create txn', txn)
@@ -66,7 +67,7 @@ function Replicated:finish(txn,status,timestamp,type)
     error(status[2])
   end
 
-  self:send({'group','sync'},'sync',timestamp,type)
+  self:send({'group','sync'},'$cast',{'sync',...})
 
   return status[2]
 end
@@ -76,7 +77,7 @@ function Replicated:enter(bucket,id,value)
   return {pcall(function ()
     local txn, timestamp = self:prepare(bucket, id)
     local status = Store.enter(self,bucket,id,value,timestamp,txn)
-    return self:finish(txn, status, timestamp, 'enter')
+    return self:finish(txn, status, timestamp, 'enter', bucket, id)
   end)}
 end
 
@@ -85,7 +86,7 @@ function Replicated:delete(bucket,id)
   return {pcall(function ()
     local txn, timestamp = self:prepare(bucket, id)
     local status = Store.delete(self,bucket,id,txn)
-    return self:finish(txn, status, timestamp, 'delete')
+    return self:finish(txn, status, timestamp, 'delete', bucket, id)
   end)}
 end
 

@@ -217,6 +217,9 @@ function Basic:fetch(bucket, key)
   -- should either be {true, container}, {true, {container}} or 
   -- {false, error}
   local ret = {pcall(function()
+    if key == "" then
+      key = nil
+    end
     assert(bucket,'unable to list without a bucket')
     -- fetching is a read only transaction, hence MDB_RDONLY
     txn = splode(Env.txn_begin, 'unable to create txn ' .. bucket, 
