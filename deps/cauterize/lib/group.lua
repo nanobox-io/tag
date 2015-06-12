@@ -41,7 +41,8 @@ function Group.leave(pid,name)
   end
 end
 
-function add_group_to_members(members,group,count,is_present)
+function add_group_to_members(members,name,count,is_present)
+  local group = groups[name]
   if group then
     for pid in pairs(group) do
       if not is_present[pid] then
@@ -61,12 +62,10 @@ function Group.get(name)
   local count = 1
   if type(name) == 'table' then
     for _,name in pairs(name) do
-      local group = groups[name]
-      count = add_group_to_members(members,group,count,is_present)
+      count = add_group_to_members(members,name,count,is_present)
     end
   else
-    local group = groups[name]
-    count = add_group_to_members(members,group,count,is_present)
+    count = add_group_to_members(members,name,count,is_present)
   end
   return members
 end
