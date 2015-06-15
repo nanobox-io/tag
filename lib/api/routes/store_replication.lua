@@ -14,12 +14,15 @@ Server = require('cauterize/tree/server')
 json = require('json')
 ffi = require('ffi')
 
-local params_for_cmds =
+local store_cmd_length =
   {fetch = 2
   ,enter = 3
   ,remove = 2
   ,r_remove = 3
   ,r_enter = 3}
+
+local custom_cmds = 
+  {}
 
 
 local function execute(write,params)
@@ -48,12 +51,18 @@ exports.route = require('weblit-websocket')({},
   function(req,read,write)
     for frame in read do
       local params = json.decode(frame.payload)
-      if params_for_cmds[params[1]] == nil then
-        write('unknown command')
-      elseif params_for_cmds[params[1]] == #params - 1 then
-        write('wrong number of params for function')
-      else
+      local cmd = params[1]
+      local param_length = store_cmd_length[cmd]
+      if param_length == #params - 1 then
         execute(write,params)
+      elseif param_length == nil then
+        if custom_cmds[cmd] == nil then
+          write('unknown command')
+        else
+          custom_cmds[cmd](unpack(params))
+        end
+      else
+        write('wrong number of params for function')
       end
     end
   end)

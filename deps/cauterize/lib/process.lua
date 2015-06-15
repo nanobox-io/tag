@@ -141,7 +141,7 @@ function Process:exit(pid,err)
     -- and now I need to end the coroutine
     coroutine.resume(self._routine,err)
   elseif pid == nil or pid == current then
-    error(err)
+    error(err,0)
   else
     -- I need to terminate a different process
     self:send(pid,'$exit')

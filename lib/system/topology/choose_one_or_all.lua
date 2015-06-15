@@ -17,6 +17,7 @@ return function(data,order,state,id)
   for i = 1, #order do
     if order[i] == id then
       if i <= #data then
+        table.remove(data,i)
         return data
       end
       index = i

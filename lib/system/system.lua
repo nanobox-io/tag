@@ -236,9 +236,9 @@ function System:run(name, elem)
 end
 
 
-function System:node_important(node,nodes_in_cluster)
-  local node = nodes_in_cluster[node]
-  node = json.decode(tostring(node))
+function System:node_important(id,nodes_in_cluster)
+  local node = nodes_in_cluster[id]
+  node = json.decode(tostring(node))  
   local systems = node.systems
   if systems then
     for _,name in pairs(systems) do

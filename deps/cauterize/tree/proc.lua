@@ -9,6 +9,7 @@
 -- Created :   18 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
+local Reactor = require('../lib/reactor')
 local Process = require('../lib/process')
 local Ref = require('../lib/ref')
 local Link = require('../lib/link')
@@ -18,7 +19,11 @@ local Proc = Process:extend()
 -- this should cause all processes that inheret from Proc to wait
 -- until the new process is started correctly.
 function Proc:new(parent,...)
-  assert(parent ~= nil,'parent cannot be nil')
+  local unlink = false
+  if parent == nil then
+    unlink = true
+    parent = Reactor.current()
+  end
 
   -- set up some default options so that procs are started correctly
   local ref = Ref.make()
@@ -32,6 +37,9 @@ function Proc:new(parent,...)
   if Pid.lookup(parent):recv({ref,link})[2] == 'down' then
     error('child failed to start')
   else
+    if unlink then
+      Link.unlink(parent,link)
+    end
     return pid,link
   end
 end
@@ -116,7 +124,7 @@ function Proc:_start(parent,ref,...)
   self:_destroy()
 
   if not sucess[1] then
-    error(sucess[2])
+    error(sucess[2],0)
   end
 end
 

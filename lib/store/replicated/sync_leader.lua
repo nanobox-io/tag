@@ -22,8 +22,8 @@ local manager = nil
 
 function SyncLeader:enable()
   p('enabling')
-  local current = Cauterize.Reactor.current()
-  manager = Manager:new(current)
+  -- this supervisor should never stop restarting its children
+  manager = Manager:new()
 end
 
 function SyncLeader:disable()
@@ -35,8 +35,13 @@ end
 function SyncLeader:add(elem)
   elem = json.decode(tostring(elem))
   p('add',elem)
+  -- this child should never cause the supervisor to shut off
   Manager.call(manager,'add_child',SyncConnection,
-    {name = elem.host,args = {elem}})
+    {name = elem.host
+    ,args = {elem}
+    ,restart = 
+      {count = 50
+      ,every = 1}})
 end
 
 function SyncLeader:remove(elem)

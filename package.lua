@@ -30,7 +30,6 @@ return
     ,"creationix/weblit-auto-headers@0.1.2-1"
     ,"creationix/mime@0.1.2-1"
     ,"creationix/weblit-websocket@0.2.3-2"
-    ,"creationix/coro-http@1.0.7-2"
     ,"pagodabox/cauterize@0.1.0"
     ,"pagodabox/lmmdb@0.1.0"
     ,"pagodabox/logger@0.1.0"

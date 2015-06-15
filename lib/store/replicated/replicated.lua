@@ -67,9 +67,28 @@ function Replicated:finish(txn, status, ...)
     error(status[2])
   end
 
-  self:send({'group', 'sync'}, '$cast', {'sync', ...})
+  local pids = Group.get({'peers'})
+  local count = #pids
+  local ref = Ref.make()
+  for pid in pairs(pids) do
+    self:send(pid,'$call',{'sync', ...},{self:current(),ref})
+  end
 
-  return status[2]
+  local success_count = 0
+  for i = 1,count do
+    -- how long do I wait for all the messages before i give up?
+    -- should I scale the time back when we have already waited?
+    local cmd_was_replicated = self:recv(5000,{ref})
+    if cmd_was_replicated and cmd_was_replicated[1] then
+      success_count = success_count + 1
+    end
+  end
+
+  if success_count == count then 
+    return status[2]
+  else
+    return 'action was not comitted on all peers'
+  end
 end
 
 function Replicated:enter(bucket, id, value)
@@ -78,7 +97,7 @@ function Replicated:enter(bucket, id, value)
     local txn, timestamp = self:prepare(bucket, id)
     local status = Store.enter(self, bucket, id, value, timestamp,
       txn)
-    return self:finish(txn, status, timestamp, 'enter', bucket, id)
+    return self:finish(txn, status, timestamp, bucket, id, value)
   end)}
 end
 
@@ -87,7 +106,7 @@ function Replicated:delete(bucket, id)
   return {pcall(function ()
     local txn, timestamp = self:prepare(bucket, id)
     local status = Store.delete(self, bucket, id, txn)
-    return self:finish(txn, status, timestamp, 'delete', bucket, id)
+    return self:finish(txn, status, timestamp, bucket, id)
   end)}
 end
 
@@ -105,17 +124,17 @@ function Replicated:r_enter(bucket, id, data)
         self.buckets, bucket, id)
       xsplode(0, Txn.put, 'unable to store object value', txn,
         self.objects, combo, data)
-    end
 
-    xsplode(0, Txn.commit,
-      'unable to commit r_delete transaction', txn)
+      xsplode(0, Txn.commit,
+        'unable to commit r_delete transaction', txn)
 
-    txn = nil
+      txn = nil
 
-    -- now i need to send this out to connections that are interested
-    if object == nil or object.update > timestamp then
-      self:send({'group', {'peers', bucket, combo}}, '$cast',
-        {'r_delete', bucket, id, data})
+      -- now i need to send this out to connections that are interested
+      if object == nil or object.update > timestamp then
+        self:send({'group', {'peers', 'b:' .. bucket, 'id:' .. combo}},
+          '$cast', {'r_enter', bucket, id, data})
+      end
     end
   end)}
   if txn then
@@ -136,17 +155,17 @@ function Replicated:r_delete(bucket, id, timestamp)
     if object and object.update > timestamp then
       xsplode(0, Txn.del, 'unable to delete object', txn,
         self.objects, combo)
-    end
 
-    xsplode(0, Txn.commit,
-      'unable to commit r_delete transaction', txn)
+      xsplode(0, Txn.commit,
+        'unable to commit r_delete transaction', txn)
 
-    txn = nil
+      txn = nil
 
-    -- now i need to send this out to connections that are interested
-    if object.update > timestamp then
-      self:send({'group', {'peers', bucket, combo}}, '$cast',
-        {'r_delete', bucket, id, timestamp})
+      -- now i need to send this out to connections that are interested
+      if object.update > timestamp then
+        self:send({'group', {'peers', 'b:' .. bucket, 'id:' .. combo}},
+          '$cast', {'r_delete', bucket, id, timestamp})
+      end
     end
   end)}
   if txn then
