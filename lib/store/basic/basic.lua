@@ -56,7 +56,7 @@ function Basic:_init()
   self.env = splode(Env.create, 'unable to create store enviroment')
 
   -- set some defaults
-  Env.set_maxdbs(self.env, 5) -- we only need 5 dbs
+  Env.set_maxdbs(self.env, 3) -- we only need 3 dbs
   Env.set_mapsize(self.env, 1024*1024*1024) -- should be ~1Gb in size
   Env.reader_check(self.env) -- make sure that no stale readers exist
 

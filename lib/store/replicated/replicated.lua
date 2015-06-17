@@ -24,37 +24,11 @@ local DB = db.DB
 local Txn = db.Txn
 local Cursor = db.Cursor
 
-function Replicated:_init()
-  Store._init(self)
-
-  local txn = splode(Env.txn_begin,
-    'unable to begin create transaction', self.env, nil, 0)
-  
-  -- replication stores remote node states, so that on disconnects
-  -- replication can resume from where it left off
-  self.replication = splode(DB.open, 'unable to create replication',
-    txn, "replication", DB.MDB_CREATE)
-
-  -- logs records write operations on this node until they are
-  -- committed on all nodes connected to this one
-  -- MDB_INTEGERKEY because we use timestamps
-  self.logs = splode(DB.open, 'unable to create logs',
-    txn, "logs", DB.MDB_CREATE + DB.MDB_INTEGERKEY)
-
-  xsplode(0, Txn.commit,
-    'unable to commit replicated database creation', txn)
-
-end
-
 function Replicated:prepare(bucket, id)
   local timestamp = hrtime()
   local txn = splode(Env.txn_begin,
     'unable to begin replicated create transaction', self.env, nil,
     0)
-
-  xsplode(0, Txn.put,
-    'unable to store in \'replication\' DB', txn, self.replication,
-    timestamp, bucket .. ':' .. id, Txn.MDB_NODUPDATA)
 
   return txn, timestamp
 end
