@@ -458,8 +458,8 @@ function build_MDB_val(elem)
     value[0].mv_data = ffi.cast("void*",elem)
     value[0].mv_size = ffi.sizeof(elem)
   elseif type(elem) == "number" then
-    value[0].mv_data = ffi.cast("void*",ffi.new("long[1]",elem))
-    value[0].mv_size = ffi.sizeof("long")
+    value[0].mv_data = ffi.cast("void*",ffi.new("long long[1]",elem))
+    value[0].mv_size = ffi.sizeof("long long")
   else
     value[0].mv_data = ffi.cast("void*",elem)
     if elem then

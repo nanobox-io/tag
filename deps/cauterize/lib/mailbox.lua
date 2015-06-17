@@ -79,6 +79,7 @@ end
 function Mailbox:recv(tags,timeout)
   local ref = nil
   if timeout ~= nil and (type(timeout) ~= "number" or timeout < 0) then
+    p(timeout)
     error('invalid timeout value')
   end
   

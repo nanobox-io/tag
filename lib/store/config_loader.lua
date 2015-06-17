@@ -34,14 +34,14 @@ function ConfigLoader:_init()
 
     for _,name in pairs(config_options) do
       local value = utl.config_get(name)
-      ConfigLoader.call('store','enter','config',name,
-        json.stringify(value))
+      p(ConfigLoader.call('store','enter','config',name,
+        json.stringify(value)))
     end
 
     local nodes = utl.config_get('nodes_in_cluster')
     for name,node in pairs(nodes) do
-      ConfigLoader.call('store','enter','nodes',name,
-        json.stringify(node))
+      p(ConfigLoader.call('store','enter','nodes',name,
+        json.stringify(node)))
     end
 
     local systems = utl.config_get('systems')
@@ -57,11 +57,11 @@ function ConfigLoader:_init()
         data = system.data
         system.data = nil
       end
-      ConfigLoader.call('store','enter','systems',name,json.stringify(system))
+      p(ConfigLoader.call('store','enter','systems',name,json.stringify(system)))
       if data then
         for idx,data in pairs(data) do
-          ConfigLoader.call('store', 'enter', 'system-' .. name,
-            tostring(idx), json.stringify(data))
+          p(ConfigLoader.call('store', 'enter', 'system-' .. name,
+            tostring(idx), json.stringify(data)))
         end
       end
     end

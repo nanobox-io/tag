@@ -21,13 +21,17 @@ local store_cmd_length =
   ,r_remove = 3
   ,r_enter = 3}
 
-local custom_cmds = 
-  {}
 
+local custom_cmds = {}
+
+local function call_store(cb,params)
+  Process:new(function(env)
+    cb(Server.call('store',unpack(params)))
+  end,{})
+end
 
 local function execute(write,params)
-  Process:new(function(env)
-    local response = Server.call('store',unpack(params))
+  call_store(function(response)
     response = response[2]
     if type(response) == 'table' then
       for i,key in ipairs(response) do
@@ -42,7 +46,7 @@ local function execute(write,params)
     coroutine.wrap(function()
       write(response)
     end)()
-  end,{})
+  end,params)
 end
 
 exports.method = 'GET'
@@ -59,10 +63,67 @@ exports.route = require('weblit-websocket')({},
         if custom_cmds[cmd] == nil then
           write('unknown command')
         else
-          custom_cmds[cmd](unpack(params))
+          custom_cmds[cmd](read,write,unpack(params))
         end
       else
         write('wrong number of params for function')
       end
     end
   end)
+
+local function perform(...)
+  local thread = coroutine.running()
+  call_store(function(results)
+    coroutine.resume(thread,results[2])
+  end,{...})
+  return coroutine.yield()
+end
+
+function custom_cmds.sync(read,write)
+  p('server: started sync command')
+  for frame in read do
+    if frame.payload == '{}' then
+      p('server: sync finished')
+      write('{}')
+      return
+    end
+    local pack = json.decode(frame.payload)
+    local bucket, members = pack[1], pack[2]
+    p('server: syncing bucket', bucket)
+    -- look up collection in store
+    local collection = perform('fetch',bucket)
+    -- subscribe to changes
+
+    -- compare against what was recieved
+    local sync = {}
+    for idx,name in ipairs(collection) do
+      local comparison = members[name]
+      local object_is_different = 
+        comparison[1] ~= tostring(collection[name].hash)
+      local remote_is_newer = 
+        comparison[2] ~= tostring(collection[name].update)
+      if comparison == nil or (object_is_different and remote_is_newer) then
+        -- should be the actual struct, not just the data.
+        p('server: adding to sync list',name)
+        local struct = collection[name]
+        sync[name] = ffi.string(struct,24 + 4 + struct.len + 1)
+      else
+        p('server: upto date',name)
+      end
+      members[name] = nil
+    end
+    p('server: writing sync group for',bucket)
+    -- send any updates that need to be sent
+    write(json.stringify({sync,members}))
+    -- get any updates from remote
+    p('server: waiting for client to send updates')
+    local updates = json.decode(read().payload)
+    p('server: got updates fior',bucket)
+    for key,value in pairs(updates) do
+      p('server: writing updates',key)
+      -- need to validate the structure received
+      perform('r_enter',bucket,key,value)
+    end
+
+  end
+end

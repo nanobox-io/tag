@@ -11,6 +11,7 @@
 
 local Store = require('../basic/basic')
 local Group = require('cauterize/lib/group')
+local Ref = require('cauterize/lib/ref')
 local Replicated = Store:extend()
 
 local hrtime = require('uv').hrtime
@@ -111,6 +112,7 @@ function Replicated:delete(bucket, id)
 end
 
 function Replicated:r_enter(bucket, id, data)
+  p('performing r_enter',bucket,id)
   local txn
   local response = {pcall(function()
     txn = splode(Env.txn_begin,

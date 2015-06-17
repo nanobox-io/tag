@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------
 
 local uv = require('uv')
+local json = require('json')
 local Cauterize = require('cauterize')
 local connect = require('coro-tcp').connect
 local HttpCodec = require('http-codec')
@@ -19,7 +20,8 @@ local wrapStream = require('coro-channel').wrapStream
 local readWrap, writeWrap = wrapper.reader, wrapper.writer
 local Group = require('cauterize/lib/group')
 local Ref = require('cauterize/lib/ref')
-local SyncConnection = Cauterize.Fsm:extend()
+local Fsm = Cauterize.Fsm
+local SyncConnection = Fsm:extend()
 
 function SyncConnection:_init(config)
   self.state = 'disconnected'
@@ -86,8 +88,68 @@ function SyncConnection.disconnected:established(err,socket,read,write)
   if not err then
     self.state = 'connected'
     self.socket = socket
-    self.write = write
-    self.read = read
+
+    local routine = coroutine.create(function(call)
+      p('client: begining sync')
+      write('["sync"]')
+      local response = call('count')
+      assert(response[1],response[2])
+      for bucket,number in pairs(response[2]) do
+        p('client: syncing bucket',bucket,'member count',number)
+
+        local members = call('fetch',bucket)
+        assert(members[1],members[2])
+        local comparison = {}
+        for idx,name in ipairs(members[2]) do
+          comparison[name] = 
+            {tostring(members[2][name].hash)
+            ,tostring(members[2][name].update)}
+        end
+        p('client: sending bucket time stamps',bucket)
+        write(json.stringify({bucket,comparison}))
+        local frame = read()
+        local packet = json.decode(frame.payload)
+        local sync, missing = packet[1], packet[2]
+        -- store sync in the db
+        p('client: applying remote sync',bucket)
+        for key,value in pairs(sync) do
+          p('client: remote sync r_enter',bucket,key)
+          -- need to validate the structure received
+          call('r_enter',bucket,key,value)
+        end
+        -- send across members that the remote is missing.
+        local values = {}
+        for key in pairs(missing) do
+          p('client: sending remote requested',key)
+          -- send the structure across.
+          values[key] = ffi.string(members[2][key])
+        end
+        write(json.stringify(values))
+      end
+      p('client: finished sync')
+      write('{}')
+      assert(read().payload == '{}')
+      p('client: remote finished sync')
+      call('done')
+    end)
+
+    local ref = self:wrap(function(cb)
+      coroutine.resume(routine,function(...)
+        cb(...)
+        return coroutine.yield()
+      end)
+      return Ref.make()
+    end)
+    repeat
+      cmd = self:recv({ref})
+      table.remove(cmd,1)
+      local results = Fsm.call('store',unpack(cmd))
+      assert(coroutine.resume(routine,results))
+
+    until cmd[1] == 'done'
+
+    -- setup the websocket to respond to commands from the other side
+
     self:wrap(function(cb)
       coroutine.wrap(function()
         repeat
@@ -97,8 +159,7 @@ function SyncConnection.disconnected:established(err,socket,read,write)
       end)()
       return '$cast'
     end)
-    Group.join(self:current(),'sync')
-    self.write('["test","command"]')
+
   else
     -- stop the process
     self:send_after('$self',1000,'$cast',{'exit','normal'})

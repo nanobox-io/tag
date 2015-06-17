@@ -38,7 +38,7 @@ typedef struct {
 } element_t;
 ]]
 -- we really want to use set/get methods
-element = ffi.metatype("element_t", 
+element = ffi.metatype("element_t",
   {__tostring = function(self)
       local pointer = ffi.cast('intptr_t',self)
       pointer = pointer + 28
@@ -56,7 +56,7 @@ function Basic:_init()
   self.env = splode(Env.create, 'unable to create store enviroment')
 
   -- set some defaults
-  Env.set_maxdbs(self.env, 4) -- we only need 4 dbs
+  Env.set_maxdbs(self.env, 5) -- we only need 5 dbs
   Env.set_mapsize(self.env, 1024*1024*1024) -- should be ~1Gb in size
   Env.reader_check(self.env) -- make sure that no stale readers exist
 
@@ -81,18 +81,63 @@ function Basic:_init()
     'unable to begin create transaction', self.env, nil, 0)
   
   -- objects stores the actual objects
-  self.objects = splode(DB.open, 'unable to create objects', 
+  self.objects = splode(DB.open, 'unable to create objects',
     txn, "objects", DB.MDB_CREATE)
+
+  -- objects stores the actual objects
+  self.counts = splode(DB.open, 'unable to create object counts',
+    txn, "count", DB.MDB_CREATE)
 
   -- buckets stores the keys that are in a bucket. this is used to
   -- enforce order and for listing a bucket
   -- MDB_DUPSORT because we store multiple values under one key
-  self.buckets = splode(DB.open, 'unable to create buckets', 
+  self.buckets = splode(DB.open, 'unable to create buckets',
     txn, "buckets", DB.MDB_DUPSORT + DB.MDB_CREATE)
 
   -- we commit the transaction so that our tables are created
   xsplode(0,Txn.commit, 'unable to commit database creation', txn)
   Name.register(self:current(),'store')
+end
+
+-- count how many values are in a bucket, or in all buckets
+function Basic:count(bucket,parent)
+  local txn = nil
+
+  local ret = {pcall(function()
+    txn = splode(Env.txn_begin,
+      'store unable to create a transaction', self.env, parent,
+      Txn.MDB_RDONLY)
+
+    if bucket then
+      return splode(Txn.get,
+        'does not exist', txn, self.counts, bucket,
+        "element_t*")
+
+    else
+      -- we are doing a list.
+      cursor = splode(Cursor.open,
+        'unable to create cursor for count', txn,
+        self.counts)
+
+      local acc = {}
+      repeat
+        -- advance cursor to next key, don't use 'splode because it
+        -- errors when out of data points
+        bucket, count = Cursor.get(cursor, key, Cursor.MDB_NEXT,
+          nil, "unsigned long long*")
+        if bucket then
+          acc[bucket] = tonumber(count[0])
+        end
+      until bucket == nil
+      
+      return acc
+    end
+  end)}
+
+  if txn then
+    Txn.abort(txn)
+  end
+  return ret
 end
 
 -- enter a new bucket, key and value into the database, returns an
@@ -109,7 +154,7 @@ function Basic:enter(bucket, key, value, timestamp, parent)
     local combo = bucket .. ':' .. key
 
     -- begin a transaction
-    txn = splode(Env.txn_begin, 
+    txn = splode(Env.txn_begin,
       'store unable to create a transaction', self.env, parent, 0)
 
     -- preserve the creation date if this is an update
@@ -124,13 +169,26 @@ function Basic:enter(bucket, key, value, timestamp, parent)
       xsplode(0, Txn.put,
         'unable to add to \'buckets\' DB', txn, self.buckets,
         bucket, key, Txn.MDB_NODUPDATA)
+
+      -- increment how many objects are in the bucket
+      local count = Txn.get(txn, self.counts, bucket,
+        "unsigned long long*")
+      if count and count[0] then
+        count = tonumber(count[0] + 1)
+      else
+        count = 1
+      end
+      xsplode(0, Txn.put,
+        'unable to add to \'count\' DB', txn, self.counts,
+        bucket, count, Txn.MDB_NODUPDATA)
+      p('done')
     end
 
     -- create an empty object. 24 for 3 longs, 4 for 1 int #value for
     -- the data, 1 for the NULL terminator
     -- MDB_RESERVE returns a pointer to the memory reserved and stored
     -- for the key combo
-    local data = splode(Txn.put, 
+    local data = splode(Txn.put,
       'unable to store value', txn ,self.objects ,combo,
       24 + 4 + #value + 1, Txn.MDB_RESERVE)
 
@@ -152,7 +210,7 @@ function Basic:enter(bucket, key, value, timestamp, parent)
     ffi.copy(ffi.cast('void *', pos), value, container.len)
 
     -- commit the transaction
-    err = xsplode(0, Txn.commit, 
+    xsplode(0, Txn.commit,
       'unable to commit transaction', txn)
 
     -- clear out becuase it is invalid
@@ -185,8 +243,8 @@ function Basic:remove(bucket, key, parent)
     local combo = bucket .. ':' .. key
     
     -- begin a transaction, store it in txn so it can be aborted later
-    txn = splode(Env.txn_begin, 
-      'store unable to create a transaction', self.env, 
+    txn = splode(Env.txn_begin,
+      'store unable to create a transaction', self.env,
       parent, 0)
 
     -- delete the object value
@@ -194,8 +252,21 @@ function Basic:remove(bucket, key, parent)
       combo)
 
     -- delete the object key
-    xsplode(0, Txn.del, 'unable to delete object key', txn, 
+    xsplode(0, Txn.del, 'unable to delete object key', txn,
       self.buckets, bucket, key)
+
+    -- decrement how many objects are in the bucket
+      local count = Txn.get(txn, self.counts, bucket,
+        "unsigned long long*")
+      if count and count[0] > 1 then
+        xsplode(0, Txn.put,
+          'unable to decrement \'count\' DB', txn, self.counts,
+          bucket, tonumber(count[0] - 1), Txn.MDB_NODUPDATA)
+      else
+        xsplode(0, Txn.del, 'unable to delete bucket count key', txn,
+          self.counts, bucket)
+      end
+      
 
     -- commit all changes
     xsplode(0, Txn.commit, 'unable to commit transaction',
@@ -214,7 +285,7 @@ end
 function Basic:fetch(bucket, key)
   
   local cursor, txn = nil, nil
-  -- should either be {true, container}, {true, {container}} or 
+  -- should either be {true, container}, {true, {container}} or
   -- {false, error}
   local ret = {pcall(function()
     if key == "" then
@@ -228,18 +299,18 @@ function Basic:fetch(bucket, key)
     if key then
       -- we are looking up a single value
       local combo = bucket .. ":" .. key
-      return splode(Txn.get, 
-        'does not exist', txn, self.objects, combo, 
+      return splode(Txn.get,
+        'does not exist', txn, self.objects, combo,
         "element_t*")
 
     else
       -- we are doing a list.
-      cursor = splode(Cursor.open, 
-        'unable to create cursor for list' .. bucket, txn, 
+      cursor = splode(Cursor.open,
+        'unable to create cursor for list' .. bucket, txn,
         self.buckets)
 
-      local b_id, id = xsplode(2, Cursor.get, 
-        'unable to set the initial cursor ' .. bucket, cursor, bucket, 
+      local b_id, id = xsplode(2, Cursor.get,
+        'unable to set the initial cursor ' .. bucket, cursor, bucket,
         Cursor.MDB_SET_KEY)
 
       local acc = {}
@@ -247,8 +318,8 @@ function Basic:fetch(bucket, key)
         local combo = bucket .. ":" .. id
         
         -- get the value for the current key
-        local container = splode(Txn.get, 
-          'unable to get value for key', txn, self.objects, 
+        local container = splode(Txn.get,
+          'unable to get value for key', txn, self.objects,
           combo, "element_t*")
         acc[#acc + 1] = id
         acc[id] = container
