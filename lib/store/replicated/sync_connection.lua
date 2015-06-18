@@ -160,6 +160,10 @@ function SyncConnection.disconnected:established(err,socket,read,write)
       return '$cast'
     end)
 
+    self.state = 'connected'
+    self.write = function(args)
+      coroutine.wrap(write)(json.stringify(args))
+    end
   else
     -- stop the process
     self:send_after('$self',1000,'$cast',{'exit','normal'})
@@ -171,7 +175,14 @@ function SyncConnection.connected:websocket_response(packet)
     -- the connection was closed, so kill this process
     self:send_after('$self',1000,'$cast',{'exit','normal'})
   else
+    packet = json.parse(packet.payload)
     p('got a websocket response',packet)
+    local response = self.order[packet[1]]
+    if response then
+      self:respond(response,true)
+    else
+      log.warning('got a response that wasn\'t one that was sent')
+    end
   end
 end
 
@@ -182,8 +193,9 @@ end
 
 function SyncConnection.connected:sync(...)
   log.info('sync replicating',...)
-
-  return true
+  local ref = Ref.make()
+  self.order[ref] = self._current_call
+  self.write({ref, ...})
 end
 
 return SyncConnection

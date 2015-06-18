@@ -329,7 +329,7 @@ function Basic:fetch(bucket, key)
         -- errors when out of data points
         b_id, id = Cursor.get(cursor, key, Cursor.MDB_NEXT_DUP)
       until b_id ~= bucket
-      
+      p('fetch',acc)
       return acc
     end
   end)}

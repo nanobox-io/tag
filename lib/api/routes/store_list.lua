@@ -29,7 +29,7 @@ exports.route = function(req,res)
       local etag = ffi.new('unsigned long long',0)
       for idx,elem in ipairs(response[2]) do
         etag = etag + response[2][elem].update
-        values[idx] = tonumber(elem.update)
+        values[elem] = tostring(response[2][elem].update)
       end
       res.headers.etag = etag
       res.body = values

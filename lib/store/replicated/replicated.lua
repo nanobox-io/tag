@@ -25,12 +25,11 @@ local Txn = db.Txn
 local Cursor = db.Cursor
 
 function Replicated:prepare(bucket, id)
-  local timestamp = hrtime()
   local txn = splode(Env.txn_begin,
     'unable to begin replicated create transaction', self.env, nil,
     0)
 
-  return txn, timestamp
+  return txn, hrtime()
 end
 
 function Replicated:finish(txn, status, ...)
