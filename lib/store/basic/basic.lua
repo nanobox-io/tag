@@ -109,9 +109,10 @@ function Basic:count(bucket,parent)
       Txn.MDB_RDONLY)
 
     if bucket then
-      return splode(Txn.get,
+      local count = splode(Txn.get,
         'does not exist', txn, self.counts, bucket,
-        "element_t*")
+        "unsigned long long*")
+      return tonumber(count[0])
 
     else
       -- we are doing a list.
