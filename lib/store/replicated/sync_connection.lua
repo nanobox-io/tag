@@ -10,7 +10,9 @@
 ----------------------------------------------------------------------
 
 local uv = require('uv')
+local hrtime = uv.hrtime
 local json = require('json')
+local log = require('logger')
 local Cauterize = require('cauterize')
 local connect = require('coro-tcp').connect
 local HttpCodec = require('http-codec')
@@ -27,7 +29,9 @@ function SyncConnection:_init(config)
   self.state = 'disconnected'
   self._recv_timeout = 0
   self.config = config
-  self:send_after('$self',1000,'$cast',{'timeout'})
+  self.order = {}
+  self:send('$self','$cast',{'timeout'})
+  self.start = hrtime()
 end
 
 -- set up the states
@@ -90,12 +94,12 @@ function SyncConnection.disconnected:established(err,socket,read,write)
     self.socket = socket
 
     local routine = coroutine.create(function(call)
-      p('client: begining sync')
+      p('client: begining sync',self.config.host,self.config.port)
       write('["sync"]')
       local response = call('count')
       assert(response[1],response[2])
+      local count = 0
       for bucket,number in pairs(response[2]) do
-        p('client: syncing bucket',bucket,'member count',number)
 
         local members = call('fetch',bucket)
         assert(members[1],members[2])
@@ -105,31 +109,29 @@ function SyncConnection.disconnected:established(err,socket,read,write)
             {tostring(members[2][name].hash)
             ,tostring(members[2][name].update)}
         end
-        p('client: sending bucket time stamps',bucket)
         write(json.stringify({bucket,comparison}))
         local frame = read()
         local packet = json.decode(frame.payload)
         local sync, missing = packet[1], packet[2]
         -- store sync in the db
-        p('client: applying remote sync',bucket)
         for key,value in pairs(sync) do
-          p('client: remote sync r_enter',bucket,key)
+          count = count + 1
           -- need to validate the structure received
           call('r_enter',bucket,key,value)
         end
         -- send across members that the remote is missing.
         local values = {}
         for key in pairs(missing) do
-          p('client: sending remote requested',key)
           -- send the structure across.
           values[key] = ffi.string(members[2][key])
         end
         write(json.stringify(values))
       end
-      p('client: finished sync')
+      p('client: finished sync',self.config.host,self.config.port)
       write('{}')
       assert(read().payload == '{}')
-      p('client: remote finished sync')
+      log.info('client: remote finished sync',self.config.host,self.config.port)
+      log.info('client: sync pulled changes:',count)
       call('done')
     end)
 
@@ -140,6 +142,9 @@ function SyncConnection.disconnected:established(err,socket,read,write)
       end)
       return Ref.make()
     end)
+    -- join the peers group so that when any updates happen while
+    -- syncing, they will get pushed across when the sync is done
+    Group.join(self:current(),'peers')
     repeat
       cmd = self:recv({ref})
       table.remove(cmd,1)
@@ -172,13 +177,18 @@ end
 
 function SyncConnection.connected:websocket_response(packet)
   if not packet then
-    -- the connection was closed, so kill this process
-    self:send_after('$self',1000,'$cast',{'exit','normal'})
+    if hrtime() - self.start < 1000000000 then
+      -- the connection was closed, so kill this process
+      self:send_after('$self',1000,'$cast',{'stop'})
+    else
+      self.connected.stop(self)
+    end
   else
-    packet = json.parse(packet.payload)
     p('got a websocket response',packet)
-    local response = self.order[packet[1]]
+    packet = json.parse(packet.payload)
+    local response = self.order[packet]
     if response then
+      p('responding',response)
       self:respond(response,true)
     else
       log.warning('got a response that wasn\'t one that was sent')
@@ -186,16 +196,30 @@ function SyncConnection.connected:websocket_response(packet)
   end
 end
 
+function SyncConnection.disconnected:stop()
+  self:_stop()
+  log.info('canceling replication from',self.config.host,self.config.port)
+  return true
+end
+
+function SyncConnection.connected:stop()
+  uv.close(self.socket)
+  self:_stop()
+  log.info('canceling replication from',self.config.host,self.config.port)
+  Group.leave(self:current(),'peers')
+  return true
+end
+
 function SyncConnection.disconnected:sync(...)
   log.info('sync dropping',...)
   return false
 end
 
-function SyncConnection.connected:sync(...)
+function SyncConnection.connected:sync(cmd,...)
   log.info('sync replicating',...)
   local ref = Ref.make()
   self.order[ref] = self._current_call
-  self.write({ref, ...})
+  self.write({cmd, ref, ...})
 end
 
 return SyncConnection

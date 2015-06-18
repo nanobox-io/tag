@@ -39,6 +39,7 @@ function Group.leave(pid,name)
       process._groups[name] = nil
    end
   end
+  p('groups',groups,pid,name)
 end
 
 function add_group_to_members(members,name,count,is_present)
@@ -74,6 +75,7 @@ function Group.clean(pid)
   local process = Pid.lookup(pid)
   if process then
     for name,_ in pairs(process._groups) do
+      p('cleaning pid',pid,name)
       groups[name][pid] = nil
     end
   end

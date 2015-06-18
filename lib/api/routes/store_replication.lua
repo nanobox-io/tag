@@ -13,13 +13,14 @@ Process = require('cauterize/lib/process')
 Server = require('cauterize/tree/server')
 json = require('json')
 ffi = require('ffi')
+log = require('logger')
 
 local store_cmd_length =
   {fetch = 2
   ,enter = 3
   ,remove = 2
   ,r_remove = 3
-  ,r_enter = 3}
+  ,r_enter = 4}
 
 
 local custom_cmds = {}
@@ -80,16 +81,16 @@ local function perform(...)
 end
 
 function custom_cmds.sync(read,write)
-  p('server: started sync command')
+  log.info('server: started sync command')
+  local count = 0
   for frame in read do
     if frame.payload == '{}' then
-      p('server: sync finished')
       write('{}')
+      log.info('server: sync pulled updates:',count)
       return
     end
     local pack = json.decode(frame.payload)
     local bucket, members = pack[1], pack[2]
-    p('server: syncing bucket', bucket)
     -- look up collection in store
     local collection = perform('fetch',bucket)
     -- subscribe to changes
@@ -104,23 +105,18 @@ function custom_cmds.sync(read,write)
         comparison[2] ~= tostring(collection[name].update)
       if comparison == nil or (object_is_different and remote_is_newer) then
         -- should be the actual struct, not just the data.
-        p('server: adding to sync list',name)
         local struct = collection[name]
         sync[name] = ffi.string(struct,24 + 4 + struct.len + 1)
       else
-        p('server: upto date',name)
       end
       members[name] = nil
     end
-    p('server: writing sync group for',bucket)
     -- send any updates that need to be sent
     write(json.stringify({sync,members}))
     -- get any updates from remote
-    p('server: waiting for client to send updates')
     local updates = json.decode(read().payload)
-    p('server: got updates fior',bucket)
     for key,value in pairs(updates) do
-      p('server: writing updates',key)
+      count = count + 1
       -- need to validate the structure received
       perform('r_enter',bucket,key,value)
     end

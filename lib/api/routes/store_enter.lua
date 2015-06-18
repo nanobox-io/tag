@@ -26,8 +26,17 @@ exports.route = function(req,res)
       req.params.key, req.body)
     
     if response[1] then
-      res.code = 200
-      res.body = "ok"
+      -- if the store reports sucess, but the return value is not a
+      -- number, then it is a replication error
+      if type(response[2]) == "number" then
+        res.code = 200
+        res.body = "ok"
+      else
+        -- the data was not replicated on all nodes, so 203 is
+        -- returned
+        res.code = 203
+        res.body = response[2]
+      end
     else
       res.code = 500
       res.body = response[2]

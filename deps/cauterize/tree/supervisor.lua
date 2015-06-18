@@ -103,18 +103,21 @@ function Supervisor:remove_child(name)
   local idx = self._children[name]
   local child = self._children[idx]
   local pid = self._pids[idx]
-  self:call(pid,'stop')
+  Supervisor.call(pid,'stop')
   table.remove(self._children,idx)
   self._children[name] = nil
   self._children[idx] = nil
   self._pids[idx] = nil
+  return true
 end
 
 function Supervisor:stop()
+  p('stopping supervisor')
   -- stop all processes managed by this supervisor
   self:restart_rest(1,true)
   -- now stop this supervisor
-  self._stop()
+  self:_stop()
+  return true
 end
 
 function Supervisor:clean(child_id)

@@ -217,9 +217,12 @@ function Basic:enter(bucket, key, value, timestamp, parent)
     -- clear out becuase it is invalid
     txn = nil
     
-    -- we return the time that it was updated. The caller already has
-    -- the data that was sent
-    return container.update
+    -- if it is going to be replicated, we return the continater
+    if timestamp then
+      return container
+    else
+      return container.update
+    end
   end)}
 
   -- perform some cleanup

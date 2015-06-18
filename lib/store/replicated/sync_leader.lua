@@ -37,7 +37,7 @@ function SyncLeader:add(elem)
   p('add',elem)
   -- this child should never cause the supervisor to shut off
   Manager.call(manager,'add_child',SyncConnection,
-    {name = elem.host
+    {name = elem.host .. ':' .. elem.port
     ,args = {elem}
     ,restart = 
       {count = 50
@@ -47,7 +47,7 @@ end
 function SyncLeader:remove(elem)
   elem = json.decode(tostring(elem))
   p('remove',elem)
-  Manager.call(manager,'remove_child',elem.host)
+  Manager.call(manager,'remove_child',elem.host .. ':' .. elem.port)
 end
 
 

@@ -56,7 +56,7 @@ function System:_init(name,system)
     end
   end
 
-  -- the the system needs to set it self up, it will have an install
+  -- if the system needs to set it self up, it will have an install
   -- script
   self:run('install')
 
@@ -87,7 +87,6 @@ function System:build_topology(description)
       return top(data,order,nodes,id,arg)
     end
   end
-  p('going to parse topology',description)
   description:gsub("([^:]*):?",function(match)
     match:gsub('([^[]*)[[]?([^]]*)]?',function(fun,arg)
       if fun ~= '' then
@@ -113,6 +112,7 @@ function System.disabled:enable()
 end
 
 function System.enabled:disable()
+  log.info('disabling system',self.name)
   self.state = 'disabled'
   self._on = {}
   if self.apply_timeout then
@@ -160,8 +160,10 @@ function System:regen()
   -- we do this incase multiple changes in nodes being up/down come in
   -- a small amount of time and can be coalesed into a single change
   -- in the plan
-  self.apply_timeout = {self:send_after('$self', 2000, '$call',
-    {'apply'}, self._current_call),self._current_call}
+  self.apply_timeout = 
+    {self:send_after('$self',self.system.timeout or 2000, '$call',
+      {'apply'}, self._current_call)
+    ,self._current_call}
 end
 
 -- run a set of changes to bring this system to the next step of the
@@ -292,10 +294,9 @@ function System:up(node)
       table.sort(self.node_order,sort_nodes(nodes_in_cluster,self.name))
     end
     self.nodes[node] = true
-    p('checking',node,self.node_id)
     if node == self.node_id then
       self[self.state].enable(self)
-    else
+    elseif self.state == 'enabled' then
       self:regen()
     end
     self:run('up', node)
@@ -309,7 +310,7 @@ function System:down(node)
     self.nodes[node] = false
     if node == self.node_id then
       self[self.state].disable(self)
-    else
+    elseif self.state == 'enabled' then
       self:regen()
     end
     self:run('down', node)

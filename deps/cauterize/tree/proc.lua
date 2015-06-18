@@ -59,7 +59,7 @@ end
 -- dies or is dead.
 function Proc:_link_call(pid,cmd,...)
   assert(type(pid) == 'string' or type(pid) == 'number',
-    'bad pid in link_call ')
+    'bad pid in link_call')
 
   -- look up the current process
   local current = self:current()

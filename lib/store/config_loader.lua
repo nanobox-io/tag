@@ -49,6 +49,7 @@ function ConfigLoader:_init()
       {topology = 'max[3]:choose_one_or_all'
       ,data = 'nodes'
       ,install = 'code:'
+      ,timeout = 250
       ,code = bundle.readfile('lib/store/replicated/sync_leader.lua')}
 
     for name,system in pairs(systems) do

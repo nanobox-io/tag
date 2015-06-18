@@ -318,6 +318,7 @@ function Txn.renew(txn)
 end
 
 function Txn.put(txn,dbi,key,data,flags)
+  if not flags then flags = 0 end
   local reserve = bit.band(flags,Txn.MDB_RESERVE) > 0 
   local index = build_MDB_val(key)
   local value
