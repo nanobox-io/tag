@@ -124,7 +124,7 @@ function Basic:count(bucket,parent)
       repeat
         -- advance cursor to next key, don't use 'splode because it
         -- errors when out of data points
-        bucket, count = Cursor.get(cursor, key, Cursor.MDB_NEXT,
+        local bucket, count = Cursor.get(cursor, key, Cursor.MDB_NEXT,
           nil, "unsigned long long*")
         if bucket then
           acc[bucket] = tonumber(count[0])
