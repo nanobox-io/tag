@@ -53,7 +53,7 @@ function Api:_manage()
       else
         if type(res.body) == 'table' then
           res.body = json.encode(res.body)
-        else
+        elseif res.body then
           res.body = tostring(res.body)
         end
       end

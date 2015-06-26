@@ -30,7 +30,7 @@ local ffi = require("ffi")
 -- decode just to update timestamps
 ffi.cdef[[
 typedef struct {
-  long hash; // hash of the combo key
+  long hash; // hash of the data
   long update; // last update time
   long creation; // creation date
   int len; // length of char string

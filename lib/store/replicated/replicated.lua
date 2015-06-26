@@ -128,6 +128,7 @@ function Replicated:r_enter(ref, bucket, id, data)
 end
 
 function Replicated:r_delete(ref, bucket, id, timestamp)
+  p('performing r_delete',ref,bucket,id,timestamp)
   local txn
   local response = {pcall(function()
     txn = splode(Env.txn_begin,

@@ -26,6 +26,7 @@ return
     ,"luvit/core@1.0.2-1"
     ,"luvit/fs@1.2.0"
     ,"luvit/json@2.5.0"
+    ,"creationix/coro-http@1.2.0"
     ,"creationix/weblit-app@0.2.6-1"
     ,"creationix/weblit-auto-headers@0.1.2-1"
     ,"creationix/mime@0.1.2-1"
@@ -33,6 +34,7 @@ return
     ,"pagodabox/cauterize@0.1.0"
     ,"pagodabox/lmmdb@0.1.0"
     ,"pagodabox/logger@0.1.0"
+    ,"pagodabox/parse-opts@0.1.0"
     ,"pagodabox/splode@0.1.0"}
   ,files =
     {"**.lua"
