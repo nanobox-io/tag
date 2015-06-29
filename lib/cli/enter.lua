@@ -9,6 +9,7 @@
 -- Created :   26 June 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 local http = require('coro-http')
+local uv = require('uv')
 
 function exports.cmd(global, config, bucket, key, value)
   assert(bucket,'need a bucket to enter data')
@@ -23,12 +24,21 @@ function exports.cmd(global, config, bucket, key, value)
     ,bucket
     ,'/'
     ,key})
+
   coroutine.wrap(function()
-    local res, data = http.request('POST',url,{},value)
+    local headers = {}
+    if value == '--' then
+      p('streaming file')
+      local channel = require('coro-channel').wrapStream
+      value = channel(uv.new_tty(0, true))
+      headers = 
+        {{'transfer-encoding','chunked'}}
+    end
+    local res, data = http.request('POST',url,headers,value)
     if res.code == 200 then
       p(data)
     else
-      p('unknown respose', res)
+      p('unknown respose', res, data)
     end
   end)()
 end

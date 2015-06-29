@@ -182,7 +182,6 @@ function Basic:enter(bucket, key, value, timestamp, parent)
       xsplode(0, Txn.put,
         'unable to add to \'count\' DB', txn, self.counts,
         bucket, count, Txn.MDB_NODUPDATA)
-      p('done')
     end
 
     -- create an empty object. 24 for 3 longs, 4 for 1 int #value for

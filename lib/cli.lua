@@ -21,6 +21,7 @@ local valid_commands =
   ,leave = true
   ,enter = true
   ,fetch = true
+  ,bench = true
   ,delete = true}
 
 apply_opts(base_cli_opts,args)

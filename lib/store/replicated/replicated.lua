@@ -45,7 +45,6 @@ function Replicated:finish(txn, status, ...)
   local count = #pids
   local ref = Ref.make()
   for _,pid in pairs(pids) do
-    p('replicating call to',pid,ref)
     self:send(pid,'$call',{'sync', ...},{self:current(),ref})
   end
 
@@ -60,7 +59,6 @@ function Replicated:finish(txn, status, ...)
   end
 
   if success_count == count then
-    log.info('action was committed on all peers that were alive')
     return status[2]
   else
     return 'action was not comitted on all peers'
@@ -94,7 +92,6 @@ function Replicated:delete(bucket, id)
 end
 
 function Replicated:r_enter(ref, bucket, id, data)
-  p('performing r_enter',ref,bucket,id,data)
   local txn
   local response = {pcall(function()
     txn = splode(Env.txn_begin,
@@ -128,7 +125,6 @@ function Replicated:r_enter(ref, bucket, id, data)
 end
 
 function Replicated:r_delete(ref, bucket, id, timestamp)
-  p('performing r_delete',ref,bucket,id,timestamp)
   local txn
   local response = {pcall(function()
     txn = splode(Env.txn_begin,

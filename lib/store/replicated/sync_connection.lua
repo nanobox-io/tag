@@ -184,11 +184,9 @@ function SyncConnection.connected:websocket_response(packet)
       self.connected.stop(self)
     end
   else
-    p('got a websocket response',packet)
     packet = json.parse(packet.payload)
     local response = self.order[packet]
     if response then
-      p('responding',response)
       self:respond(response,true)
     else
       log.warning('got a response that wasn\'t one that was sent')
@@ -216,7 +214,6 @@ function SyncConnection.disconnected:sync(...)
 end
 
 function SyncConnection.connected:sync(cmd,...)
-  log.info('sync replicating',...)
   local ref = Ref.make()
   self.order[ref] = self._current_call
   self.write({cmd, ref, ...})
