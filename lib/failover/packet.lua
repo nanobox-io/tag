@@ -10,14 +10,18 @@
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
+local Group = require('cauterize/lib/group')
 local Name = require('cauterize/lib/name')
 local uv = require('uv')
+local ffi = require('ffi')
 local log = require('logger')
 local json = require('json')
 local utl = require('../util')
 local Packet = Cauterize.Fsm:extend()
 
 function Packet:_init(host,port,node,skip)
+  -- join all the groups we need to be able to dynamically get updates
+  Group.join(self:current(),'b:nodes')
 
   -- create a udp socket
   self.udp = uv.new_udp()
@@ -30,7 +34,6 @@ function Packet:_init(host,port,node,skip)
   self.packet = nil
 
   -- dynamic config options
-  p('setting up packet server')
   self.node = node or utl.config_get('node_name')
   local gossip_config = utl.config_get('nodes_in_cluster')[self.node]
   gossip_config = json.decode(tostring(gossip_config))
@@ -63,15 +66,21 @@ end
 Packet.disabled = {}
 Packet.enabled = {}
 
-function Packet:update_conifg(key,value)
-  self[key] = value
+
+function Packet:r_enter(bucket,id,value)
+  if bucket == 'nodes' then
+    p('adding new node',id)
+    local element = ffi.new('element_t*',ffi.cast('void *',value))
+    local node = json.decode(tostring(element))
+    node.name = id
+    self:add_node(node)
+  end
 end
 
-function Packet:update_nodes(key,nodes)
-  assert(key == 'nodes_in_cluster',
-    'wrong key passed to nodes update function')
-
-  assert('not implemented added nodes to running cluster')
+function Packet:r_delete(bucket,id)
+  if bucket == 'nodes' then
+    self:remove_node(id)
+  end
 end
 
 function Packet:update_state_on_node(node, state, who)

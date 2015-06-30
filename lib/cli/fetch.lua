@@ -27,7 +27,7 @@ function exports.cmd(global, config, bucket, key)
     local res, data = http.request('GET',url,{},nil)
     if res.code == 404 then
       p('not found')
-    elseif res.code == 200 then
+    elseif res.code == 200 or res.code == 203 then
       p(data)
     else
       p('unknown respose', res)

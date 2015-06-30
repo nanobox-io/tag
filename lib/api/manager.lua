@@ -30,7 +30,6 @@ function Api:_manage()
   local files = splode(Luvi.bundle.readdir,'no routes were present',
     'lib/api/routes')
   
-  p('api listening on',gossip_config.host,gossip_config.port)
   weblit
     .use(require('weblit-auto-headers'))
     .bind(
@@ -61,7 +60,6 @@ function Api:_manage()
 
   for _,file in pairs(files) do
     local route = require('./routes/' .. file)
-    p('loading route',route)
     weblit.route(route,route.route)
   end
 

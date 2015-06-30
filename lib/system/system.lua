@@ -241,6 +241,7 @@ end
 function System:node_important(id,nodes_in_cluster)
   local node = nodes_in_cluster[id]
   node = json.decode(tostring(node))  
+  p('found node',node)
   local systems = node.systems
   if systems then
     for _,name in pairs(systems) do
@@ -287,7 +288,8 @@ end
 
 -- notify this system that a node came online
 function System:up(node)
-  local nodes_in_cluster = util.config_get('nodes_in_cluster')
+  
+  local nodes_in_cluster = System.call('store','fetch','nodes')[2]
   if self:node_important(node,nodes_in_cluster) then
     if self.nodes[node] == nil then
       self.node_order[#self.node_order + 1] = node
@@ -305,8 +307,12 @@ end
 
 -- notify this system that a node went offline
 function System:down(node)
-  local nodes_in_cluster = util.config_get('nodes_in_cluster')
+  local nodes_in_cluster = System.call('store','fetch','nodes')[2]
   if self:node_important(node,nodes_in_cluster) then
+    if self.nodes[node] == nil then
+      self.node_order[#self.node_order + 1] = node
+      table.sort(self.node_order,sort_nodes(nodes_in_cluster,self.name))
+    end
     self.nodes[node] = false
     if node == self.node_id then
       self[self.state].disable(self)

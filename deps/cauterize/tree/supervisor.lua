@@ -45,6 +45,9 @@ function Supervisor:new_child(child,opts)
     self.count = self.count + 1
     opts.name = "child_".. self.count
   end
+  if self._children[opts.name] then
+    error('child has already been started')
+  end
   if not opts.restart then opts.restart = 
     {count = 5
     ,every = 10}

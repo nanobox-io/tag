@@ -75,7 +75,6 @@ function Group.clean(pid)
   local process = Pid.lookup(pid)
   if process then
     for name,_ in pairs(process._groups) do
-      p('cleaning pid',pid,name)
       groups[name][pid] = nil
     end
   end

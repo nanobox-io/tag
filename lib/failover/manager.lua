@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
+local Group = require('cauterize/lib/group')
 local Node = require('./node')
 local Packet = require('./packet')
 local log = require('logger')
@@ -18,25 +19,29 @@ local utl = require('../util')
 local Nodes = Cauterize.Supervisor:extend()
 
 function Nodes:_manage()
+  -- join the group to get updates to the nodes collection
+  Group.join(self:current(),'b:nodes')
   -- start a process for each node in the cluster for monitoring.
-  local nodes = utl.config_watch(self:current(), 'nodes_in_cluster',
-    'update_nodes')
-  if nodes then
-    for _,name in pairs(nodes) do
-      local opts =
-        {name = name}
-      self:manage(Node,{name = name, args = {opts}})
-    end
-  else
-    error(nodes)
+  local ret = Nodes.call('store','fetch','nodes')
+  assert(ret[1],ret[2])
+  for _,name in ipairs(ret[2]) do
+    local opts =
+      {name = name}
+    self:manage(Node,{name = name, args = {opts}})
   end
 end
 
-function Nodes:update_nodes(key,value,type)
-  assert(key == 'nodes_in_cluster',
-    'wrong key was passed to update nodes')
+function Nodes:r_enter(bucket,id)
+  assert(bucket == 'nodes')
+  self:add_child(Node,
+    {name = id
+    ,args = {{name = id}}})
+end
 
-  assert(false, 'not implemented yet')
+function Nodes:r_delete(bucket,id)
+  p('mamager removing a node',id)
+  assert(bucket == 'nodes')
+  self:remove_child(id)
 end
 
 local Failover = Cauterize.Supervisor:extend()

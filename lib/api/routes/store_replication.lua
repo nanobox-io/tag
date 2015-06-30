@@ -118,8 +118,7 @@ function custom_cmds.sync(read,write)
     for key,value in pairs(updates) do
       count = count + 1
       -- need to validate the structure received
-      perform('r_enter',bucket,key,value)
+      perform('r_enter',nil,bucket,key,value)
     end
-
   end
 end

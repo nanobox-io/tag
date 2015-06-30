@@ -10,6 +10,7 @@
 ----------------------------------------------------------------------
 
 local uv = require('uv')
+local ffi = require('ffi')
 local hrtime = uv.hrtime
 local json = require('json')
 local log = require('logger')
@@ -111,19 +112,25 @@ function SyncConnection.disconnected:established(err,socket,read,write)
         end
         write(json.stringify({bucket,comparison}))
         local frame = read()
+        if frame == nil then
+          call('closed')
+          return
+        end
+
         local packet = json.decode(frame.payload)
         local sync, missing = packet[1], packet[2]
         -- store sync in the db
         for key,value in pairs(sync) do
           count = count + 1
           -- need to validate the structure received
-          call('r_enter',bucket,key,value)
+          call('r_enter',nil,bucket,key,value)
         end
         -- send across members that the remote is missing.
         local values = {}
         for key in pairs(missing) do
           -- send the structure across.
-          values[key] = ffi.string(members[2][key])
+          local struct = members[2][key]
+          values[key] = ffi.string(struct,24 + 4 + struct.len + 1)
         end
         write(json.stringify(values))
       end
@@ -147,10 +154,10 @@ function SyncConnection.disconnected:established(err,socket,read,write)
     Group.join(self:current(),'peers')
     repeat
       cmd = self:recv({ref})
+      assert(cmd ~= 'closed','connection was closed')
       table.remove(cmd,1)
       local results = Fsm.call('store',unpack(cmd))
       assert(coroutine.resume(routine,results))
-
     until cmd[1] == 'done'
 
     -- setup the websocket to respond to commands from the other side

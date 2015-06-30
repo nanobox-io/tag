@@ -32,7 +32,7 @@ function Replicated:prepare(bucket, id)
   return txn, hrtime()
 end
 
-function Replicated:finish(txn, status, ...)
+function Replicated:finish(txn, status, name, bucket, id, data)
   if status[1] then
     xsplode(0, Txn.commit,
       'unable to commit replicated create txn', txn)
@@ -45,7 +45,8 @@ function Replicated:finish(txn, status, ...)
   local count = #pids
   local ref = Ref.make()
   for _,pid in pairs(pids) do
-    self:send(pid,'$call',{'sync', ...},{self:current(),ref})
+    self:send(pid, '$call', {'sync', name, bucket, id, data},
+      {self:current(), ref})
   end
 
   local success_count = 0
@@ -57,6 +58,10 @@ function Replicated:finish(txn, status, ...)
       success_count = success_count + 1
     end
   end
+
+  -- send it to anyone else who is listening
+  self:send({'group', {'b:' .. bucket, 'id:' .. bucket .. ':' .. id}},
+    '$cast', {name, bucket, id, data})
 
   if success_count == count then
     return status[2]
