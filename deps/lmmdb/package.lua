@@ -10,7 +10,7 @@
 ----------------------------------------------------------------------
 return
   {name = "pagodabox/lmmdb"
-  ,version = "0.1.0"
+  ,version = "0.1.1"
   ,author =
     {name = "Daniel Barney"
     ,email = "daniel@pagodabox.com"}
