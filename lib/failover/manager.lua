@@ -20,7 +20,7 @@ local Nodes = Cauterize.Supervisor:extend()
 function Nodes:_manage()
   -- start a process for each node in the cluster for monitoring.
   local nodes = utl.config_watch(self:current(), 'nodes_in_cluster',
-  	'update_nodes')
+    'update_nodes')
   if nodes then
     for name in pairs(nodes) do
       local opts =
@@ -33,10 +33,10 @@ function Nodes:_manage()
 end
 
 function Nodes:update_nodes(key,value,type)
-	assert(key == 'nodes_in_cluster',
-		'wrong key was passed to update nodes')
+  assert(key == 'nodes_in_cluster',
+    'wrong key was passed to update nodes')
 
-	assert(false, 'not implemented yet')
+  assert(false, 'not implemented yet')
 end
 
 local Failover = Cauterize.Supervisor:extend()

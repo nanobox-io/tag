@@ -47,7 +47,7 @@ function ConfigLoader:_init()
   local exists = ConfigLoader.call('store','fetch','nodes',node_name)
 
   if not exists[1] then
-  	local nodes = utl.config_get('nodes_in_cluster')
+    local nodes = utl.config_get('nodes_in_cluster')
     for name,node in pairs(nodes) do
       ConfigLoader.call('store','enter','nodes',name,
         json.stringify(node))

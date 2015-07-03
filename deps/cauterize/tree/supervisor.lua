@@ -25,7 +25,7 @@ function Supervisor:_init()
   self._pids = {}
   self.restart_strategy = 'one'
   assert(type(self._manage) == 'function',
-  	'supervisor is missing its manage block')
+    'supervisor is missing its manage block')
   self:_manage()
   -- now I need to start up all child processes
   for idx,child in pairs(self._children) do
