@@ -10,14 +10,9 @@
 ---------------------------------------------------------------------
 
 local ffi = require("ffi")
-
-local fs = require("fs")
--- um this seems to be a bug. why can't i require it from the root of
--- this project?
-local raw,err = require('luvi').bundle.readfile(
-  'deps/lmmdb/darwin/liblmdb.so')
-fs.writeFileSync('/tmp/liblmdb.so',raw)
-local lmdb = ffi.load('/tmp/liblmdb.so')
+local jit = require('jit')
+local folder = jit.os .. '_' .. jit.arch
+local lmdb = require('./' .. folder ..'/liblmdb.so')
 
 ffi.cdef[[
 char*   mdb_version (int* major, int* minor, int* patch);

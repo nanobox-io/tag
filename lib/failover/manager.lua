@@ -39,7 +39,6 @@ function Nodes:r_enter(bucket,id)
 end
 
 function Nodes:r_delete(bucket,id)
-  p('mamager removing a node',id)
   assert(bucket == 'nodes')
   self:remove_child(id)
 end

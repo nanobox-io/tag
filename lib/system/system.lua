@@ -56,6 +56,19 @@ function System:_init(name,system)
     end
   end
 
+  local function handle(signal)
+    local sig_handler = uv.new_signal()
+    uv.signal_start(sig_handler, signal, function()
+      uv.close(sig_handler)
+      self._on = {}
+      self:apply()
+      os.exit(0)
+    end)
+  end
+  handle('sigint')
+  handle('sigquit')
+  handle('sigterm')
+
   -- if the system needs to set it self up, it will have an install
   -- script
   self:run('install')

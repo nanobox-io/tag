@@ -69,7 +69,6 @@ Packet.enabled = {}
 
 function Packet:r_enter(bucket,id,value)
   if bucket == 'nodes' then
-    p('adding new node',id)
     local element = ffi.new('element_t*',ffi.cast('void *',value))
     local node = json.decode(tostring(element))
     node.name = id
@@ -218,7 +217,6 @@ function Packet:generate_new_packet()
 end
 
 function Packet:add_node(node)
-  log.debug('adding node',node)
   assert(node.name,'missing node name')
   assert(node.host,'missing node host')
   assert(node.port,'missing node port')
