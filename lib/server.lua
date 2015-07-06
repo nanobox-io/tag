@@ -12,7 +12,6 @@
 local Cauterize = require('cauterize')
 local log = require('logger')
 local file = require('fs')
-local lmmdb = require('lmmdb')
 local json = require('json')
 local Config = require('./config_router')
 local splode = require('splode')

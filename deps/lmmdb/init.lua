@@ -12,7 +12,7 @@
 local ffi = require("ffi")
 local jit = require('jit')
 local folder = jit.os .. '_' .. jit.arch
-local lmdb = require('./' .. folder ..'/liblmdb.so')
+local lmdb = module:action('./' .. folder ..'/liblmdb.so', ffi.load)
 
 ffi.cdef[[
 char*   mdb_version (int* major, int* minor, int* patch);
