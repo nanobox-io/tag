@@ -15,7 +15,7 @@ local log = require('logger')
 local json = require('json')
 local utl = require('../util')
 
-local ConfigLoader = Cauterize.Supervisor:extend()
+local ConfigLoader = Cauterize.Server:extend()
 
 function ConfigLoader:_init()
   -- load all nodes in the config file into the database, but only if

@@ -26,7 +26,7 @@ function Nodes:_manage()
   assert(ret[1],ret[2])
   for _,name in ipairs(ret[2]) do
     local opts =
-      {name = name}
+      {name = 'node_' .. name}
     self:manage(Node,{name = name, args = {opts}})
   end
 end
@@ -47,8 +47,8 @@ local Failover = Cauterize.Supervisor:extend()
 
 function Failover:_manage()
   log.info('failover manager is starting up')
-  self:manage(Packet)
-      :manage(Nodes,'supervisor')
+  self:manage(Packet, {name = 'packet server'})
+      :manage(Nodes, {name = 'node manager', type = 'supervisor'})
 end
 
 return Failover

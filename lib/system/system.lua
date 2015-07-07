@@ -84,6 +84,12 @@ function System:_init(name,system)
   self:apply()
 end
 
+function System:stop()
+  self._on = {}
+  self:apply()
+  return true
+end
+
 local topologies = 
   {choose_one = true
   ,nothing = true

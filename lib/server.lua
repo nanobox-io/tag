@@ -10,10 +10,13 @@
 ----------------------------------------------------------------------
 
 local Cauterize = require('cauterize')
+local Process = require('cauterize/lib/process')
 local log = require('logger')
-local file = require('fs')
+local fs = require('fs')
+local uv = require('uv')
 local json = require('json')
 local Config = require('./config_router')
+local stdin = require('pretty-print').stdin
 local splode = require('splode')
 splode.logger = log.warning
 
@@ -28,7 +31,7 @@ if #args == 2 then
   local type = args[1]
   local data = args[2]
   if type == '-config-file' then
-    data = file:read(data)
+    data = fs:read(data)
   elseif type ~= '-config-json' then
     error('bad type'..type)
   end
@@ -53,10 +56,22 @@ if #args == 2 then
 
   -- enter the main event loop, this function should never return
   Cauterize.Reactor:enter(function(env)
-    App:new(env:current())
+    local app = App:new(env:current())
     
     -- now that everything is setup lets enable the sending of packets
     Cauterize.Supervisor.call('packet_server','enable')
+
+    if config.exit_on_stdin_close == true then
+      -- if stdin is closed, shutdown the system
+      uv.read_start(stdin, function(err,data)
+        if data == nil then
+          Process:new(function()
+            App.call(app, 'stop')
+            os.exit(0)
+          end)
+        end
+      end)
+    end
   end)
 
   -- not reached

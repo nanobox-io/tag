@@ -21,12 +21,12 @@ local Store = Cauterize.Supervisor:extend()
 function Store:_manage()
   if Cauterize.Supervisor.call('config','get','replicated_db') then
     log.info('enabling replicated mode')
-    self:manage(Replication)
+    self:manage(Replication, {name = 'replicated store'})
   else
     log.info('enabling single node')
-    self:manage(Basic)
+    self:manage(Basic, {name = 'basic store'})
   end
-  self:manage(ConfigLoader)
+  self:manage(ConfigLoader, {name = 'config loader'})
 end
 
 return Store

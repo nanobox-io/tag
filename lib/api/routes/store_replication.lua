@@ -10,13 +10,15 @@
 ----------------------------------------------------------------------
 
 Process = require('cauterize/lib/process')
+Group = require('cauterize/lib/group')
 Server = require('cauterize/tree/server')
 json = require('json')
 ffi = require('ffi')
 log = require('logger')
 
 local store_cmd_length =
-  {fetch = 2
+  {monitor = 0
+  ,fetch = 2
   ,enter = 3
   ,remove = 2
   ,r_remove = 3
@@ -55,19 +57,22 @@ exports.path = '/connect'
 exports.route = require('weblit-websocket')({},
   function(req,read,write)
     for frame in read do
-      local params = json.decode(frame.payload)
-      local cmd = params[1]
-      local param_length = store_cmd_length[cmd]
-      if param_length == #params - 1 then
-        execute(write,params)
-      elseif param_length == nil then
-        if custom_cmds[cmd] == nil then
-          write('unknown command')
+      p('handling command',frame)
+      if frame.opcode == 1 then
+        local params = json.decode(frame.payload)
+        local cmd = params[1]
+        local param_length = store_cmd_length[cmd]
+        if param_length == #params - 1 then
+          execute(write,params)
+        elseif param_length == nil then
+          if custom_cmds[cmd] == nil then
+            write('unknown command')
+          else
+            custom_cmds[cmd](read,write,unpack(params))
+          end
         else
-          custom_cmds[cmd](read,write,unpack(params))
+          write('wrong number of params for function')
         end
-      else
-        write('wrong number of params for function')
       end
     end
   end)
@@ -80,7 +85,23 @@ local function perform(...)
   return coroutine.yield()
 end
 
-function custom_cmds.sync(read,write)
+function custom_cmds.monitor(read, write)
+  -- I need to enter into a loop and never let go until the connection
+  -- closes. For every node event (up|down) it needs to be replicated
+  -- over the websocket
+  Process:new(function()
+    Group.join(self:current(),'systems')
+    local msgs = function() return self:recv() end
+    for msg in msgs do
+      coroutine.wrap(function()
+        p('replicating', msg)
+        assert(write(json.stringify({'node', msg})))
+      end)()
+    end
+  end,{})
+end
+
+function custom_cmds.sync(read, write)
   log.info('server: started sync command')
   local count = 0
   for frame in read do

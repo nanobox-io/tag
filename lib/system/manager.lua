@@ -31,7 +31,7 @@ function Manager:_manage()
         system_opts = json.decode(tostring(system_opts))
         log.info('configuring system',system_name)
         enabled = enabled + 1
-        self:manage(System,{args = {system_name,system_opts}})
+        self:manage(System,{name = 'system_' .. system_name, args = {system_name,system_opts}})
       else
         log.warning('unknown system',system_name)
       end

@@ -173,15 +173,10 @@ function Supervisor:restart_rest(child_id,skip)
   for idx = child_id,#self._children do
     local pid = self._pids[idx]
     if pid then
-      if self._children[idx].type == 'supervisor' then
-        -- should wait for the supervisor to exit
-        self:call(pid,'stop')
-      else
-        -- this may be too sudden
-        self:exit(pid)
-      end
+      p('stopping',pid,self._children[idx].name)
+      Supervisor.call(pid,'stop')
     end
-    if skip then
+    if not skip then
       self:start_child(self._children[idx],idx)
     end
   end

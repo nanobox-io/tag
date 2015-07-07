@@ -36,7 +36,9 @@ function Api:_manage()
       {host = gossip_config.host
       ,port = gossip_config.port})
     .use(function(req,res,go)
+      p(req)
       go()
+      p(res)
       -- inform the other side that we are not synced up yet.
       if not self.enabled and res.code == 200 then
         res.code = 203
