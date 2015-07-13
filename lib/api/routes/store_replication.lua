@@ -17,8 +17,7 @@ ffi = require('ffi')
 log = require('logger')
 
 local store_cmd_length =
-  {monitor = 0
-  ,fetch = 2
+  {fetch = 2
   ,enter = 3
   ,remove = 2
   ,r_remove = 3
@@ -73,6 +72,8 @@ exports.route = require('weblit-websocket')({},
         else
           write('wrong number of params for function')
         end
+      else
+        p('unknown frame',frame)
       end
     end
   end)
@@ -89,9 +90,9 @@ function custom_cmds.monitor(read, write)
   -- I need to enter into a loop and never let go until the connection
   -- closes. For every node event (up|down) it needs to be replicated
   -- over the websocket
-  Process:new(function()
-    Group.join(self:current(),'systems')
-    local msgs = function() return self:recv() end
+  Process:new(function(env)
+    Group.join(env:current(),'systems')
+    local msgs = function() return env:recv() end
     for msg in msgs do
       coroutine.wrap(function()
         p('replicating', msg)

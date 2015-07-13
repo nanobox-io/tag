@@ -23,8 +23,10 @@ function exports.cmd(global, config, bucket, key)
   if key then
     url = url .. '/' .. key
   end
-  coroutine.wrap(function()
+  p(coroutine.wrap(function()
+    p('making request',url)
     local res, data = http.request('GET',url,{},nil)
+    p('done',res,data)
     if res.code == 404 then
       p('not found')
     elseif res.code == 200 or res.code == 203 then
@@ -32,7 +34,7 @@ function exports.cmd(global, config, bucket, key)
     else
       p('unknown respose', res)
     end
-  end)()
+  end)())
 end
 
 exports.opts = {}

@@ -9,8 +9,6 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
-local Cauterize = require('cauterize')
-local Name = require('cauterize/lib/name')
 local log = require('logger')
 local Splode = require('splode')
 local splode, xsplode = Splode.splode, Splode.xsplode

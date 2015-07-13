@@ -33,10 +33,13 @@ if valid_commands[cmd_name] then
   log.info('running cmd',cmd_name)
   local module = require('./cli/' .. cmd_name)
   local cmd_opts, cmd = module.cmd_opts, module.cmd
+  cmd_opts = cmd_opts or {}
   table.remove(args,1)
   apply_opts(cmd_opts,args)
+  log.info('what?',base_cli_opts,cmd_opts,unpack(args))
   cmd(base_cli_opts,cmd_opts,unpack(args))
-  return require('uv').run()
+  log.info('entering uv loop')
+  p(require('uv').run())
 else
   error('invalid command: '..cmd_name)
 end
