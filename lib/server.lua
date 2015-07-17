@@ -24,7 +24,8 @@ splode.logger = log.warning
 local Store = require('./store/manager')
 local Failover = require('./failover/manager')
 local System = require('./system/manager')
-local Api = require('./api/manager')
+
+Api.start()
 
 if #args == 2 then
 
@@ -51,14 +52,13 @@ if #args == 2 then
         :manage(Failover,
           {type = 'supervisor', name = 'failover manager'})
         :manage(System,{type = 'supervisor', name = 'system manager'})
-        :manage(Api,{type = 'supervisor', name = 'api manager'})
   end
 
   -- enter the main event loop, this function should never return
   Cauterize.Reactor:enter(function(env)
     local app = App:new(env:current())
     
-    -- now that everything is setup lets enable the sending of packets
+    -- now that everything is setup let's enable the sending of packets
     Cauterize.Supervisor.call('packet_server','enable')
 
     if config.exit_on_stdin_close == true then

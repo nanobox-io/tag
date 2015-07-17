@@ -33,6 +33,7 @@ return
     ,"creationix/weblit-websocket@0.2.3-2"
     ,"creationix/coro-split@0.1.1"
     ,"creationix/coro-fs@1.3.0"
+    ,"pagodabox/redis-codec@0.1.0"
     ,"pagodabox/cauterize@0.1.1"
     ,"pagodabox/lmmdb@0.1.1"
     ,"pagodabox/logger@0.1.0"

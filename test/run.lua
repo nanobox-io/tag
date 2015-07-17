@@ -22,9 +22,9 @@ repeat
     -- run the tests!
     tap(true)
   end
-  local match = string.match(ent.name, "^test%-(.*).lua$")
+  local match = string.match(ent.name, "^test%-speed.lua$")
   if match then
-    local path = "./test-" .. match
+    local path = "./test-speed"
     tap(match)
     require(path)
   end

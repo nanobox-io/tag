@@ -30,11 +30,11 @@ function MDB.version()
   return ffi.string(version),major[0],minor[0],patch[0]
 end
 
-function MDB.error(err)
-  if err == 0 then return end
+function MDB.error(err, ret)
+  if err == 0 then return ret or true end
   local num = ffi.new("int", err)
   local res = lmdb.mdb_strerror(num)
-  return ffi.string(res)
+  return false, ffi.string(res)
 end
 
 local Env = 
@@ -82,6 +82,7 @@ typedef struct {
 } MDB_val;
 
 typedef int MDB_cursor_op;
+typedef int(  MDB_cmp_func )(const MDB_val *a, const MDB_val *b);
 ]]
 
 local EnvFunctions = 
@@ -140,11 +141,11 @@ local odd_functions =
 int mdb_get (MDB_txn txn, MDB_dbi dbi, MDB_val *key, MDB_val *data);
 void mdb_dbi_close (MDB_env env, MDB_dbi dbi);
 int mdb_dbi_open (MDB_txn txn, const char *name, unsigned int flags,
-  MDB_dbi *dbi);]]
+  MDB_dbi *dbi);
+int mdb_set_dupsort (MDB_txn txn, MDB_dbi dbi, MDB_cmp_func *cmp);]]
 
 local unimplemented = 
 [[int mdb_set_compare (MDB_txn txn, MDB_dbi dbi, MDB_cmp_func *cmp);
-int mdb_set_dupsort (MDB_txn txn, MDB_dbi dbi, MDB_cmp_func *cmp);
 int mdb_set_relfunc (MDB_txn txn, MDB_dbi dbi, MDB_rel_func *rel);
 int mdb_reader_list (MDB_env env, MDB_msg_func *func, void *ctx);
 int mdb_cmp (MDB_txn txn, MDB_dbi dbi, const MDB_val *a,
@@ -158,18 +159,18 @@ ffi.cdef(CursorFunctions)
 ffi.cdef(odd_functions)
 
 function Env.create()
-  local pointer = ffi.new("MDB_env[1]",ffi.new("MDB_env",nil))
+  local pointer = ffi.new("MDB_env[1]", ffi.new("MDB_env",nil))
   local err = lmdb.mdb_env_create(pointer)
-  return pointer[0],MDB.error(err)
+  return MDB.error(err, pointer[0])
 end
 
-function Env.open(env,path,flags,mode)
-  local err = lmdb.mdb_env_open(env,path,flags,mode)
+function Env.open(env,path, flags, mode)
+  local err = lmdb.mdb_env_open(env, path, flags, mode)
   return MDB.error(err)
 end
 
-function Env.copy(env,path)
-  local err = lmdb.mdb_env_copy(env,path)
+function Env.copy(env, path)
+  local err = lmdb.mdb_env_copy(env, path)
   return MDB.error(err)
 end
 
@@ -178,9 +179,9 @@ local _MDB_stat = {}
 MDB_stat = ffi.metatype("MDB_stat", _MDB_stat)
 
 function Env.stat(env)
-  local stat = ffi.new("MDB_stat[1]",MDB_stat())
-  local err = lmdb.mdb_env_stat(env,stat)
-  return stat[0],MDB.error(err)
+  local stat = ffi.new("MDB_stat[1]", MDB_stat())
+  local err = lmdb.mdb_env_stat(env, stat)
+  return MDB.error(err, stat[0])
 end
 
 local MDB_envinfo
@@ -188,18 +189,18 @@ local _MDB_envinfo = {}
 MDB_envinfo = ffi.metatype("MDB_envinfo", _MDB_envinfo)
 
 function Env.info(env)
-  local stat = ffi.new("MDB_envinfo[1]",MDB_envinfo())
-  local err = lmdb.mdb_env_info(env,stat)
-  return stat[0],MDB.error(err)
+  local stat = ffi.new("MDB_envinfo[1]", MDB_envinfo())
+  local err = lmdb.mdb_env_info(env, stat)
+  return MDB.error(err, stat[0])
 end
 
-function Env.sync(env,force)
+function Env.sync(env, force)
   if force then
     force = 1
   else
     force = 0
   end
-  local err = lmdb.mdb_env_sync(env,force)
+  local err = lmdb.mdb_env_sync(env, force)
   return MDB.error(err)
 end
 
@@ -207,52 +208,52 @@ function Env.close(env)
   lmdb.mdb_env_close(env)
 end
 
-function Env.set_flags(env,flags,onoff)
+function Env.set_flags(env, flags, onoff)
   if onoff then
     onoff = 1
   else
     onoff = 0
   end
-  local err = lmdb.mdb_env_set_flags(env,flags,onoff)
+  local err = lmdb.mdb_env_set_flags(env, flags, onoff)
   return MDB.error(err)
 end
 
 function Env.get_flags(env)
-  local flags = ffi.new("unsigned int[1]",0)
-  local err = lmdb.mdb_env_get_flags(env,flags)
-  return flags[0],MDB.error(err)
+  local flags = ffi.new("unsigned int[1]", 0)
+  local err = lmdb.mdb_env_get_flags(env, flags)
+  return MDB.error(err, flags[0])
 end
 
 function Env.get_path(env)
-  local path = ffi.new("char*[1]",ffi.new("char*"))
-  local err = lmdb.mdb_env_get_path(env,ffi.cast("const char**",path))
-  return ffi.string(path[0]),MDB.error(err)
+  local path = ffi.new("char*[1]", ffi.new("char*"))
+  local err = lmdb.mdb_env_get_path(env, ffi.cast("const char**", path))
+  return MDB.error(err, ffi.string(path[0]))
 end
 
 function Env.get_fd(env)
   local fd = ffi.new("mdb_filehandle_t[1]")
-  local err = lmdb.mdb_env_get_fd(env,fd)
-  return fd[0],MDB.error(err)
+  local err = lmdb.mdb_env_get_fd(env, fd)
+  return MDB.error(err, fd[0])
 end
 
-function Env.set_mapsize(env,size)
-  local err = lmdb.mdb_env_set_mapsize(env,size)
+function Env.set_mapsize(env, size)
+  local err = lmdb.mdb_env_set_mapsize(env, size)
   return MDB.error(err)
 end
 
-function Env.set_maxreaders(env,readers)
-  local err = lmdb.mdb_env_set_maxreaders(env,readers)
+function Env.set_maxreaders(env, readers)
+  local err = lmdb.mdb_env_set_maxreaders(env, readers)
   return MDB.error(err)
 end
 
 function Env.get_maxreaders(env)
   local readers = ffi.new("unsigned int[1]")
-  local err = lmdb.mdb_env_get_maxreaders(env,readers)
-  return readers[0],MDB.error(err)
+  local err = lmdb.mdb_env_get_maxreaders(env, readers)
+  return MDB.error(err, readers[0])
 end
 
-function Env.set_maxdbs(env,max_dbs)
-  local err = lmdb.mdb_env_set_maxdbs(env,max_dbs)
+function Env.set_maxdbs(env, max_dbs)
+  local err = lmdb.mdb_env_set_maxdbs(env, max_dbs)
   return MDB.error(err)
 end
 
@@ -272,14 +273,14 @@ end
 
 function Env.reader_check(env)
   local dead = ffi.new("unsigned int[1]")
-  local err = lmdb.mdb_reader_check(env,dead)
-  return dead[0],MDB.error(err)
+  local err = lmdb.mdb_reader_check(env, dead)
+  return MDB.error(err, dead[0])
 end
 
-function Env.txn_begin(env,parent,flags)
-  local txn = ffi.new("MDB_txn[1]",ffi.new("MDB_txn"))
-  local err = lmdb.mdb_txn_begin(env,parent,flags,txn)
-  return txn[0],MDB.error(err)
+function Env.txn_begin(env, parent, flags)
+  local txn = ffi.new("MDB_txn[1]", ffi.new("MDB_txn"))
+  local err = lmdb.mdb_txn_begin(env, parent, flags, txn)
+  return MDB.error(err, txn[0])
 end
 
 local Txn = 
@@ -297,7 +298,8 @@ function Txn.env(txn)
 end
 
 function Txn.commit(txn)
-  return MDB.error(lmdb.mdb_txn_commit(txn))
+  local err = lmdb.mdb_txn_commit(txn)
+  return MDB.error(err)
 end
 
 function Txn.abort(txn)
@@ -309,10 +311,11 @@ function Txn.reset(txn)
 end
 
 function Txn.renew(txn)
-  return MDB.error(lmdb.mdb_txn_renew(txn))
+  local err = lmdb.mdb_txn_renew(txn)
+  return MDB.error(err)
 end
 
-function Txn.put(txn,dbi,key,data,flags)
+function Txn.put(txn, dbi, key, data, flags)
   if not flags then flags = 0 end
   local reserve = bit.band(flags,Txn.MDB_RESERVE) > 0 
   local index = build_MDB_val(key)
@@ -322,39 +325,36 @@ function Txn.put(txn,dbi,key,data,flags)
     value[0].mv_size = data
     value[0].mv_data = nil
   else
-    value = build_MDB_val(data,flags)
+    value = build_MDB_val(data, flags)
   end
-  local err = lmdb.mdb_put(txn,dbi,index,value,flags)
-  
-  if err > 0 then
-    return nil,MDB.error(err)
+  local err = lmdb.mdb_put(txn, dbi, index, value, flags)
+  if reserve then
+    return MDB.error(err, value[0].mv_data)
   else
-    if reserve then
-      return value[0].mv_data
-    end
+    return MDB.error(err)
   end
 end
 
-function Txn.get(txn,dbi,key,cast)
+function Txn.get(txn, dbi, key, cast)
   local value = ffi.new("MDB_val[1]")
 
   local lookup = build_MDB_val(key)
-  local err = lmdb.mdb_get(txn,dbi,lookup,value)
+  local err = lmdb.mdb_get(txn, dbi, lookup, value)
   local string
   if err == 0 then
-    string = build_return(value,cast)
+    string = build_return(value, cast)
   end
-  return string,MDB.error(err)
+  return MDB.error(err, string)
 end
 
-function Txn.del(txn,dbi,key,data)
+function Txn.del(txn, dbi, key, data)
   local index = build_MDB_val(key)
   local value
   if data then
     value = build_MDB_val(data)
   end
 
-  local err = lmdb.mdb_del(txn,dbi,index,value)
+  local err = lmdb.mdb_del(txn, dbi, index, value)
   return MDB.error(err)
 end
 
@@ -367,31 +367,36 @@ local DB =
   ,MDB_REVERSEDUP = 0x40
   ,MDB_CREATE =     0x40000}
 
-function DB.open(txn,name,flags)
+function DB.open(txn, name, flags)
 
   local index = ffi.new("MDB_dbi[1]")
-  local err = lmdb.mdb_dbi_open(txn,name,flags,index)
-  return index[0],MDB.error(err)
+  local err = lmdb.mdb_dbi_open(txn, name, flags, index)
+  return MDB.error(err, index[0])
 end
 
-function DB.close(txn,dbi)
-  lmdb.mdb_dbi_close(txn,dbi)
+function DB.close(txn, dbi)
+  lmdb.mdb_dbi_close(txn, dbi)
 end
 
-function DB.flags(txn,dbi)
+function DB.flags(txn, dbi)
   local flags = ffi.new("unsigned int[1]")
-  local err = lmdb.mdb_dbi_flags(txn,dbi,flags)
-  return flags[0],MDB.error(err)
+  local err = lmdb.mdb_dbi_flags(txn, dbi, flags)
+  return MDB.error(err, flags[0])
 end
 
-function DB.stat(txn,dbi)
+function DB.set_dupsort(txn, dbi, sort)
+  local err = lmdb.mdb_set_dupsort(txn, dbi, sort)
+  return MDB.error(err)
+end
+
+function DB.stat(txn, dbi)
   local stat = ffi.new("MDB_stat[1]")
-  local err = lmdb.mdb_stat(txn,dbi,stat)
-  return stat[0],MDB.error(err)
+  local err = lmdb.mdb_stat(txn, dbi, stat)
+  return MDB.error(err, stat[0])
 end
 
-function DB.drop(txn,dbi,del)
-  local err = lmdb.mdb_drop(txn,dbi,del)
+function DB.drop(txn, dbi, del)
+  local err = lmdb.mdb_drop(txn, dbi, del)
   return MDB.error(err)
 end
 
@@ -415,49 +420,63 @@ local Cursor =
   ,MDB_SET_KEY        = 16
   ,MDB_SET_RANGE      = 17}
 
-function Cursor.open(txn,dbi)
-  local cursor = ffi.new("MDB_cursor[1]",ffi.new("MDB_cursor"))
-  local err = lmdb.mdb_cursor_open(txn,dbi,cursor)
-  return cursor[0],MDB.error(err)
+function Cursor.open(txn, dbi)
+  local cursor = ffi.new("MDB_cursor[1]", ffi.new("MDB_cursor"))
+  local err = lmdb.mdb_cursor_open(txn, dbi, cursor)
+  return MDB.error(err, cursor[0])
 end
 
 function Cursor.close(cursor)
   lmdb.mdb_cursor_close(cursor)
 end
 
-function Cursor.get(cursor,key,op,icast,cast)
+function Cursor.get(cursor, key, data, op, icast, cast)
   local index = build_MDB_val(key)
-  local value = ffi.new("MDB_val[1]")
-  value[0].mv_data = ffi.cast("void*",nil)
-  value[0].mv_size = 0
-  local err = lmdb.mdb_cursor_get(cursor,index,value,op)
+  local value
+  if data then
+    value = build_MDB_val(data)
+  else
+    value = ffi.new("MDB_val[1]")
+    value[0].mv_data = ffi.cast("void*", nil)
+    value[0].mv_size = 0
+  end
+  local err = lmdb.mdb_cursor_get(cursor, index, value, op)
   if not (err == 0) then
-    return nil,nil,MDB.error(err)
+    return MDB.error(err)
   else
     index = build_return(index,icast)
     value = build_return(value,cast)
-    return index,value,MDB.error(err)
+    return index,value
   end
 end
 
-function build_return(value,cast)
+function Cursor.del(cursor, flags)
+  local err = lmdb.mdb_cursor_del(cursor, flags)
+  return MDB.error(err)
+end
+
+function build_return(value, cast)
   if cast then
-    return ffi.cast(cast,value[0].mv_data)
+    return ffi.cast(cast, value[0].mv_data)
   elseif value then
-    return ffi.string(value[0].mv_data,value[0].mv_size)
+    return ffi.string(value[0].mv_data, value[0].mv_size)
   end
 end
 
 function build_MDB_val(elem)
   local value = ffi.new("MDB_val[1]")
-  if type(elem) == "cdata" then
+  local t = type(elem)
+  if t == "cdata" then
     value[0].mv_data = ffi.cast("void*",elem)
     value[0].mv_size = ffi.sizeof(elem)
-  elseif type(elem) == "number" then
-    value[0].mv_data = ffi.cast("void*",ffi.new("long long[1]",elem))
+  elseif t == "number" then
+    value[0].mv_data = ffi.cast("void*", ffi.new("long long[1]", elem))
     value[0].mv_size = ffi.sizeof("long long")
+  elseif t == 'table' then
+    value[0].mv_data = ffi.cast("void*", elem[1])
+    value[0].mv_size = elem[2]
   else
-    value[0].mv_data = ffi.cast("void*",elem)
+    value[0].mv_data = ffi.cast("void*", elem)
     if elem then
       value[0].mv_size = #elem
     else
@@ -467,6 +486,6 @@ function build_MDB_val(elem)
   return value
 end
 
-p("using Lightning Memory Mapped Database",MDB.version())
+p("using Lightning Memory Mapped Database", MDB.version())
 
-return {Env = Env,DB = DB, Txn = Txn,Cursor = Cursor}
+return {Env = Env, DB = DB, Txn = Txn, Cursor = Cursor}

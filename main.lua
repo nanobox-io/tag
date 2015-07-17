@@ -18,6 +18,10 @@ function main()
     table.remove(args,1)
     require('./lib/server')
     -- not reached
+  elseif args[1] == '-db' then
+    log.add_logger('debug','console',function(...) p(...) end)
+    log.debug("entering db mode")
+    require('./lib/db')
   else
     log.add_logger('debug','console',function(...) p(...) end)
     log.debug("entering cli mode")
