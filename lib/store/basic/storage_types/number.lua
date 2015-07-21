@@ -40,7 +40,7 @@ function exports:incr(txn, info, container_type, header_type)
     new_header.type = type
   end
   new_number.count = amount
-  return true, tonumber(amount)
+  return tonumber(amount)
 end
 
 function exports.decr(self, txn, info, container_type, header_type)

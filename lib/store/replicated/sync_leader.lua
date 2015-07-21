@@ -11,32 +11,25 @@
 
 local Cauterize = require('cauterize')
 local json = require('json')
-local SyncConnection = require('../store/replicated/sync_connection')
-local Manager = Cauterize.Supervisor:extend()
-
--- we start nothing by default
-function Manager:_manage() end
+local SyncConnection = require('./sync_connection')
+local Supervisor = Cauterize.Supervisor
 
 local SyncLeader = {}
-local manager = nil
 
 function SyncLeader:enable()
   p('enabling')
-  -- this supervisor should never stop restarting its children
-  manager = Manager:new()
 end
 
 function SyncLeader:disable()
   p('disable')
-  Manager.call(manager,'stop')
-  manager = nil
+  Supervisor.call('sync-manager','stop')
 end
 
 function SyncLeader:add(elem)
   elem = json.decode(tostring(elem))
   p('add',elem)
   -- this child should never cause the supervisor to shut off
-  Manager.call(manager,'add_child',SyncConnection,
+  Supervisor.call('sync-manager','add_child',SyncConnection,
     {name = elem.host .. ':' .. elem.port
     ,args = {elem}
     ,restart = 
@@ -47,7 +40,7 @@ end
 function SyncLeader:remove(elem)
   elem = json.decode(tostring(elem))
   p('remove',elem)
-  Manager.call(manager,'remove_child',elem.host .. ':' .. elem.port)
+  Supervisor.call('sync-manager','remove_child',elem.host .. ':' .. elem.port)
 end
 
 

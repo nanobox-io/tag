@@ -26,7 +26,12 @@ function exports:get(txn, info)
   local header, string, value =
     self:resolve(txn, self.objects, info[2], 'header_t', 'string_t')
   if header then
-    return ffi.string(value, string.len)
+    if header.type == 1 then
+      return ffi.string(value, string.len)
+    else
+      local number = ffi.cast('number_t*', string)
+      return tonumber(number.count)
+    end
   end
 end
 
@@ -35,13 +40,28 @@ end
 function exports:set(txn, info)
   local key = info[2]
   local elem = info[3]
-  local length = #elem
-  local header, string, data = 
-    assert(self:reserve(txn, self.objects, key, 'header_t', 'string_t', length))
-  self:update_time(txn, key)
-  ffi.copy(data, elem, length)
-  string.len = length
-  header.type = 'STRING'
+  local t = type(elem)
+  if t == 'number' then
+    local header, number = 
+      assert(self:reserve(txn, self.objects, key, 'header_t', 'number_t'))
+    self:update_time(txn, key)
+    number.count = elem
+    header.type = 'NUMBER'
+  elseif t == 'boolean' then
+    local header, number = 
+      assert(self:reserve(txn, self.objects, key, 'header_t', 'number_t'))
+    self:update_time(txn, key)
+    number.count = elem and 1 or 0
+    header.type = 'NUMBER'
+  else
+    local length = #elem
+    local header, string, data = 
+      assert(self:reserve(txn, self.objects, key, 'header_t', 'string_t', length))
+    self:update_time(txn, key)
+    ffi.copy(data, elem, length)
+    string.len = length
+    header.type = 'STRING'
+  end
   return 'ok'
 end
 

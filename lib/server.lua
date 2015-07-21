@@ -15,17 +15,14 @@ local log = require('logger')
 local fs = require('fs')
 local uv = require('uv')
 local json = require('json')
-local Config = require('./config_router')
 local stdin = require('pretty-print').stdin
-local splode = require('splode')
-splode.logger = log.warning
 
 
-local Store = require('./store/manager')
+local Sync = require('./store/replicated/manager')
 local Failover = require('./failover/manager')
 local System = require('./system/manager')
-
-Api.start()
+local load_config = require('./default')
+local store = require('./store/main').singleton()
 
 if #args == 2 then
 
@@ -46,27 +43,37 @@ if #args == 2 then
 
   -- set up the main application supervisor
   local App = Cauterize.Supervisor:extend()
+  load_config(config)
+
+  -- show a meaningful process name 'tag -> node1 127.0.0.1:1234'
+  local node_name = store:get(nil, {'get', '#node_name'})
+  local host, port = unpack(store:hmget(nil, {'hmget', '!' .. node_name, 'host', 'port'}))
+  uv.set_process_title('tag -> ' .. node_name .. ' ' .. host .. ':' .. port)
+
   function App:_manage()
-    self:manage(Config,{args = {config}, name = 'config'})
-        :manage(Store,{type = 'supervisor', name = 'store manager'})
-        :manage(Failover,
+    self:manage(Failover,
           {type = 'supervisor', name = 'failover manager'})
-        :manage(System,{type = 'supervisor', name = 'system manager'})
+        :manage(Sync,
+          {type = 'supervisor', name = 'sync manager'})
+        :manage(System,
+          {type = 'supervisor', name = 'system manager'})
+
   end
 
   -- enter the main event loop, this function should never return
   Cauterize.Reactor:enter(function(env)
     local app = App:new(env:current())
     
-    -- now that everything is setup let's enable the sending of packets
     Cauterize.Supervisor.call('packet_server','enable')
 
     if config.exit_on_stdin_close == true then
       -- if stdin is closed, shutdown the system
       uv.read_start(stdin, function(err,data)
         if data == nil then
+          log.info('stdin closed, shutting down system')
           Process:new(function()
             App.call(app, 'stop')
+            Store.singleton:close()
             os.exit(0)
           end)
         end

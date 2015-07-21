@@ -16,18 +16,21 @@ local log = require('logger')
 local Cauterize = require('cauterize')
 local json = require('json')
 local Plan = require('./plan')
-local util = require ('../util')
+local store = require('../store/main').singleton()
 local Name = require('cauterize/lib/name')
 local Group = require('cauterize/lib/group')
 
 local System = Cauterize.Fsm:extend()
 
-function System:_init(name,system)
-  -- this might need to be dynamic
-  self.system = system
+function System:_init(name)
+  self.system = {}
+  local kv = store:hgetall(nil, {'hgetall', name})
+  for i = 1, #kv, 2 do
+    self.system[kv[i]] = kv[i + 1]
+  end
 
   self.state = 'disabled'
-  self.node_id = util.config_get('node_name')
+  self.node_id = store:get(nil, {'get', '#node_name'})
   self:build_topology(self.system.topology)
   self.name = name
   Name.register(self:current(), 'system-' .. name)
@@ -38,10 +41,10 @@ function System:_init(name,system)
 
   -- if the system has been defined as additional code to be loaded in
   -- Tag, then lets load it.
-  if system.install == 'code:' then
+  if self.system.install == 'code:' then
     -- is this the right path for the new require?
     local req, module = Require('bundle:/lib/system/system.lua')
-    local fn = assert(loadstring(system.code,'bundle:/lib/system/system/'..self.name))
+    local fn = assert(loadstring(self.system.code,'bundle:/lib/system/system/'..self.name))
     local global = {
       module = module,
       exports = module.exports,
@@ -62,7 +65,7 @@ function System:_init(name,system)
       uv.close(sig_handler)
       self._on = {}
       self:apply()
-      os.exit(0)
+      os.exit(0) -- this should really wait for everything to exit
     end)
   end
   handle('sigint')
@@ -153,16 +156,7 @@ function System:regen()
     else
       name = 'system-' .. self.name
     end
-    local ret = System.call('store','fetch',name)
-    if ret[1] then
-      data = ret[2]
-      for idx,name in ipairs(data) do
-        data[idx] = data[name]
-        data[name] = nil
-      end
-    else
-      data = {}
-    end
+    data = store:smembers(nil,{'smembers',name})
   end
 
   -- divide it over the alive nodes in the system, and store the
@@ -272,48 +266,15 @@ function System:node_important(id,nodes_in_cluster)
   return false
 end
 
-local function sort_nodes(nodes,system)
-  for key,value in pairs(nodes) do
-    nodes[key] = json.decode(tostring(value))
-  end
-  return function (node1,node2)
-    local node1_priority
-    local node2_priority
-    
-    local priorities = nodes[node1].priority
-    if priorities then
-      node1_priority = priorities[system]
-    end
-    priorities = nodes[node2].priority
-    if priorities then
-      node2_priority = priorities[system]
-    end
-
-    if node1_priority and node2_priority then
-      return node1_priority < node2_priority
-    elseif node1_priority then
-      return true
-    elseif node2_priority then
-      return false
-    else
-      return node1 < node2
-    end
-  end
-end
-
 -- TODO automatically transitioning to enabled and disabled should be
 -- based on a quorum of nodes in the SYSTEM not the cluster. this will
 -- allow systems that are partially alive to still function.
 
 -- notify this system that a node came online
 function System:up(node)
-  
-  local nodes_in_cluster = System.call('store','fetch','nodes')[2]
-  if self:node_important(node,nodes_in_cluster) then
-    if self.nodes[node] == nil then
-      self.node_order[#self.node_order + 1] = node
-      table.sort(self.node_order,sort_nodes(nodes_in_cluster,self.name))
-    end
+  local is_member_of_system = 
+    store:sismember(nil, {'sismember',self.name .. '-nodes', node})
+  if is_member_of_system then
     self.nodes[node] = true
     if node == self.node_id then
       self[self.state].enable(self)
@@ -326,12 +287,9 @@ end
 
 -- notify this system that a node went offline
 function System:down(node)
-  local nodes_in_cluster = System.call('store','fetch','nodes')[2]
-  if self:node_important(node,nodes_in_cluster) then
-    if self.nodes[node] == nil then
-      self.node_order[#self.node_order + 1] = node
-      table.sort(self.node_order,sort_nodes(nodes_in_cluster,self.name))
-    end
+  local is_member_of_system = 
+    store:sismember(nil, {'sismember',self.name .. '-nodes', node})
+  if is_member_of_system then
     self.nodes[node] = false
     if node == self.node_id then
       self[self.state].disable(self)
@@ -343,11 +301,11 @@ function System:down(node)
 end
 
 -- If we are not in the correct state, lets return an error
-function System:enable()
+function System.enabled:enable()
   return {false, 'unable to enable system from state ' .. self.state}
 end
 
-function System:disable()
+function System.disabled:disable()
   return {false, 'unable to disable system from state ' .. self.state}
 end
 

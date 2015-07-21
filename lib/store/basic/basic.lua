@@ -25,10 +25,11 @@ local compare = module:action('./' .. folder ..'/libcompare.so', ffi.load)
 
 ffi.cdef[[
 int compare_queue_objs(const MDB_val *a, const MDB_val *b);
+int compare_hash_objs(const MDB_val *a, const MDB_val *b);
 ]]
 
 ffi.cdef[[
-typedef enum {TOMBSTONE, STRING, NUMBER, SET, QUEUE} obj_type;
+typedef enum {TOMBSTONE, STRING, NUMBER, SET, QUEUE, HASH} obj_type;
 
 typedef struct {
   long creation; // creation date
@@ -42,7 +43,7 @@ function Basic:initialize(path)
   self.env = assert(Env.create(), 'unable to create store enviroment')
 
   -- set some defaults
-  Env.set_maxdbs(self.env, 4) -- we only need 4 dbs
+  Env.set_maxdbs(self.env, 5) -- we only need 5 dbs
   Env.set_mapsize(self.env, 1024*1024*1024 * 10)
   Env.reader_check(self.env) -- make sure that no stale readers exist
 
@@ -83,18 +84,23 @@ function Basic:initialize(path)
   assert(DB.set_dupsort(txn, self.queue_items,
     compare.compare_queue_objs))
 
+  self.hash_elements = assert(DB.open(txn, "hash_elements", DB.MDB_CREATE + DB.MDB_DUPSORT))
+  assert(DB.set_dupsort(txn, self.hash_elements,
+    compare.compare_hash_objs))
+
   -- we commit the transaction so that our tables are created
   assert(Txn.commit(txn))
-  log.debug('database was opened')
+  log.info('database was opened')
   self.txn_timer = uv.new_timer()
+  self.tails = {}
 end
 
 function Basic:perform(info, read, write)
   local name = info[1]:lower()
   if Basic.valid_cmds[name] then
-    return pcall(self[name],self, nil, info, read, write)
+    return self[name](self, nil, info, read, write)
   else
-    return false, 'UNKNOWN COMMAND'
+    return error('UNKNOWN COMMAND')
   end
 end
 
@@ -103,44 +109,10 @@ local function compose(cmd, fun, valid_types)
     local txn = Env.txn_begin(self.env, parent, 0)
     local sucess, ret = fun(self, txn, info, ...)
     if sucess then
+      -- if we need to log the function, this is where that would go
       assert(Txn.commit(txn))
     else
       Txn.abort(txn)
-    end
-    return sucess, ret
-  end
-end
-
-local function wrap1(cmd, fun, valid_types)
-  return function(self, parent, key, ...)
-    if not key then return false, 'missing key' end
-    local txn = Env.txn_begin(self.env, parent, self.flags[name])
-    local old_container = Txn.get(txn, self.objects, key, "header_t*")
-    if old_container then
-      if old_container.type == 'TOMBSTONE' then
-        old_container = nil
-      else
-        assert(valid_types[old_container.type],
-          'key has wrong type for cmd')
-      end
-    end
-    local sucess, new_container, ret = pcall(fun, self, txn,
-      old_container, key, ...)
-    if sucess then
-      log.debug('ran cmd', cmd, key, ...)
-      -- we may want to track statistics on what commands were run
-      -- this is where we would do that
-      local creation = hrtime()
-      -- preserve the original creation timestamp
-      if old_container then
-        new_container.creation = old_container.creation
-      else
-        new_container.creation = creation
-      end
-      new_container.update = creation
-      assert(Txn.commit(txn))
-    else
-      assert(Txn.abort(txn))
     end
     return sucess, ret
   end
@@ -151,6 +123,7 @@ local storage_types =
   ,'set'
   ,'number'
   ,'queue'
+  ,'hash'
   ,'common'}
 
 Basic.flags = {}

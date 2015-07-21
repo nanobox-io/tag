@@ -59,3 +59,29 @@ end
 function exports:keys(txn, info)
 
 end
+
+function exports:exists(txn, info)
+  local key = info[2]
+  local header = self:resolve(txn, self.objects, key, 'header_t')
+  return header ~= false
+end
+
+function exports:tail(txn, info)
+  local key = info[2]
+  local tails = self.tails[key]
+  if not tails then
+    tails = {}
+    self.tails[key] = tails
+  end
+  local idx = #tails + 1
+  local call_back
+  tails[idx] = function(info)
+    if call_back then
+      call_back(info)
+    end
+  end
+
+  return function(cb)
+    call_back = cb
+  end
+end

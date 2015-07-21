@@ -14,47 +14,23 @@ local Name = require('cauterize/lib/name')
 local Group = require('cauterize/lib/group')
 local log = require('logger')
 local json = require('json')
-local util = require('../util')
+local store = require('../store/main').singleton()
+
 local Node = Cauterize.Fsm:extend()
 
 function Node:_init(config)
-  self.state = 'down'
-
-  -- dynamic config options
-  self.needed_quorum = util.config_watch(self:current(), 'needed_quorum',
-    'quorum_update')
-  self.needed_quorum = json.decode(tostring(self.needed_quorum))
-  self.node_wait_for_response_intreval = util.config_watch(self:current(),
-    'node_wait_for_response_interval', 'udpate_config')
-  self.node_wait_for_response_intreval = 
-    json.decode(tostring(self.node_wait_for_response_intreval))
-  
   self.reports = {}
   self.timers = {}
   self.name = config.name
   Name.register(self:current(),self.name)
   Group.join(self:current(),'nodes')
   self:send({'group','systems'},'$cast',{'down',self.name})
+  self.state = 'down'
 end
 
 -- set up some states
 Node.down = {}
 Node.up = {}
-
--- we got an update to the config value, lets set it
-function Node:update_config(key,value)
-  self[key] = value
-end
-
-function Node:quorum_update(key,value)
-  assert(key == 'needed_quorum',
-    'wrong key was passed to update quorum')
-  self[key] = value
-
-  -- we we need to recheck our node state
-  self:change_state_if_quorum_satisfied()
-end
-
 
 -- we only want to check if we need to change states if up is called
 -- in the down state or down in the up state.
@@ -119,7 +95,9 @@ function Node:change_state_if_quorum_satisfied()
       up_quorum_count = up_quorum_count + 1
     end
   end
-  if up_quorum_count >= self.needed_quorum then
+  local needed_quorum = store:scard(nil, {'scard','!nodes'})/ 2 + 1
+
+  if up_quorum_count >= needed_quorum then
     self:change_to_new_state_and_notify('up')
   else
     -- this is also a quorum, but for down.

@@ -11,36 +11,44 @@
 
 local Cauterize = require('cauterize')
 local Group = require('cauterize/lib/group')
+local Ref = require('cauterize/lib/ref')
 local Node = require('./node')
 local Packet = require('./packet')
 local log = require('logger')
-local utl = require('../util')
+local store = require('../store/main').singleton()
+
 
 local Nodes = Cauterize.Supervisor:extend()
 
 function Nodes:_manage()
-  -- join the group to get updates to the nodes collection
-  Group.join(self:current(),'b:nodes')
-  -- start a process for each node in the cluster for monitoring.
-  local ret = Nodes.call('store','fetch','nodes')
-  assert(ret[1],ret[2])
-  for _,name in ipairs(ret[2]) do
-    local opts =
-      {name = 'node_' .. name}
-    self:manage(Node,{name = name, args = {opts}})
+  -- tail the key that we are interested in
+  local upgrade = store:tail(nil, {'tail', '!nodes'})
+  -- fetch all members
+  local members = store:smembers(nil, {'smembers', '!nodes'})
+  local ref = self:wrap(function(ref, cb) upgrade(cb) return Ref.make() end)
+  self[ref] = self.replicate
+  for _, member in pairs(members) do
+    self:send_after('$self', 0, '$cast', {'r_enter',member})
   end
+  store:del(nil,{'del', '#ping_nodes'})
 end
 
-function Nodes:r_enter(bucket,id)
-  assert(bucket == 'nodes')
+function Nodes:replicate(info, result)
+  p(info, result)
+end
+
+function Nodes:r_enter(id)
   self:add_child(Node,
     {name = id
     ,args = {{name = id}}})
+  if id ~= store:get(nil, {'get', '#node_name'}) then
+    p('number of nodes:',store:lpush(nil,{'lpush', '#ping_nodes', id}),id)
+  end
 end
 
-function Nodes:r_delete(bucket,id)
-  assert(bucket == 'nodes')
+function Nodes:r_delete(id)
   self:remove_child(id)
+  store:lrem(nil,{'lpush', '#ping_nodes', id, 0})
 end
 
 local Failover = Cauterize.Supervisor:extend()

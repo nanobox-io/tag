@@ -9,156 +9,73 @@
 -- Created :   15 May 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
+-- ok so a few rules
+-- prefixing a key with '#' disables replication for that key
+-- prefixing a key with '$' enables splitting of the data across
+--   nodes in the cluster. ensures that all members of a list/set/hash
+--   are split across multiple nodes (this can really break things and
+--   probably isn't reccommended unless you fully understand the
+--   consequences.)
+-- prefixing a key with '!' enables cluster wide replication, aka
+--   the values are stored on every Peer before returning sucess to
+--   the client.
+-- prefixing a key with '~' will cause the data to be stored on every
+--   Peer, but wihout waiting for all Peers to acknowlege that the key
+--   was stored sucessfully
+-- by default keys will be stored on the node that processed the
+--   request, and on Peers of the node.
+-- there is a set called #subscribed-keys that contains a list of all
+--   keys that are being synced down from the Peer nodes.
+-- there also exists a flag called #leader-node that informs the
+--   node that all keys need to be synced from the Peer nodes, false
+--   means that #subscribed-keys is used.
+-- there also a key called #enable-proxy that turns the node
+--   into just a proxy for the cluster, as data queried will not be
+--   synced to the local node
+
+
 local Store = require('../basic/basic')
-local Group = require('cauterize/lib/group')
-local Ref = require('cauterize/lib/ref')
+
 local Replicated = Store:extend()
+local replication_map = {}
 
-local hrtime = require('uv').hrtime
-local log = require('logger')
-local ffi = require('ffi')
-local json = require('json')
-local Splode = require('splode')
-local splode, xsplode = Splode.splode, Splode.xsplode
-local db = require('lmmdb')
-local Env = db.Env
-local DB = db.DB
-local Txn = db.Txn
-local Cursor = db.Cursor
+local function split_division()
 
-function Replicated:prepare(bucket, id)
-  local txn = splode(Env.txn_begin,
-    'unable to begin replicated create transaction', self.env, nil, 0)
-  return txn, hrtime()
 end
 
-function Replicated:finish(txn, status, name, bucket, id, data)
-  if status[1] then
-    xsplode(0, Txn.commit,
-      'unable to commit replicated create txn', txn)
+local function disabled_replication()
+
+end
+
+local function all_replicated()
+
+end
+
+local function eventually_replicated()
+
+end
+
+local function my_peers()
+
+end
+
+replication_map[string.byte('$')] = split_division
+replication_map[string.byte('#')] = disabled_replication
+replication_map[string.byte('!')] = all_replicated
+replication_map[string.byte('~')] = eventually_replicated
+
+function Replicated:perform(info, read, write)
+  local key = info[2]
+  local char = data:byte()
+  local replication_strategy = replication_map[char]
+  if not replication_strategy then
+    replication_strategy = my_peers
+  end
+  local name = info[1]:lower()
+  if Basic.valid_cmds[name] then
+    -- get the key location
+    return pcall(self[name],self, nil, info, read, write)
   else
-    xsplode(1, Txn.abort, 'unable to abort replicated txn', txn)
-    error(status[2])
-  end
-
-  local pids = Group.get({'peers'})
-  local count = #pids
-  local ref = Ref.make()
-  for _,pid in pairs(pids) do
-    self:send(pid, '$call', {'sync', name, bucket, id, data},
-      {self:current(), ref})
-  end
-
-  local success_count = 0
-  for i = 1,count do
-    -- how long do I wait for all the messages before i give up?
-    -- should I scale the time back when we have already waited?
-    local cmd_was_replicated = self:recv({ref},5000)
-    if cmd_was_replicated and cmd_was_replicated[1] then
-      success_count = success_count + 1
-    end
-  end
-
-  -- send it to anyone else who is listening
-  self:send({'group', {'b:' .. bucket, 'id:' .. bucket .. ':' .. id}},
-    '$cast', {name, bucket, id, data})
-
-  if success_count == count then
-    return status[2]
-  else
-    return 'action was not comitted on all peers'
+    return false, 'UNKNOWN COMMAND'
   end
 end
-
-function Replicated:enter(bucket, id, value)
-  local args = {}
-  return {pcall(function ()
-    local txn, timestamp = self:prepare(bucket, id)
-    local status = Store.enter(self, bucket, id, value, timestamp,
-      txn)
-    -- the caller does not need to know about the continer, just the
-    -- time stamp
-    local container = status[2]
-    if status[1] then
-      status[2] = timestamp
-      container = ffi.string(container,24 + 4 + container.len + 1)
-    end
-    return self:finish(txn, status, 'r_enter', bucket, id, container)
-  end)}
-end
-
-function Replicated:delete(bucket, id)
-  local args = {}
-  return {pcall(function ()
-    local txn, timestamp = self:prepare(bucket, id)
-    local status = Store.delete(self, bucket, id, txn)
-    return self:finish(txn, status, 'r_delete', bucket, id, timestamp)
-  end)}
-end
-
-function Replicated:r_enter(ref, bucket, id, data)
-  local txn
-  local response = {pcall(function()
-    txn = splode(Env.txn_begin,
-      'unable to begin r_enter transaction', self.env, nil, 0)
-
-    local combo = bucket .. ':' .. id
-    local new_object = ffi.new('element_t*',ffi.cast('void *',data))
-    local object, err = Txn.get(txn, self.objects, combo,
-      "element_t*")
-    if object == nil or object.update < new_object.update then
-      xsplode(0, Txn.put, 'unable to store object key', txn,
-        self.buckets, bucket, id)
-      xsplode(0, Txn.put, 'unable to store object value', txn,
-        self.objects, combo, data)
-
-      xsplode(0, Txn.commit,
-        'unable to commit r_delete transaction', txn)
-
-      txn = nil
-
-      -- now i need to send this out to connections that are interested
-      self:send({'group', {'peers', 'b:' .. bucket, 'id:' .. combo}},
-        '$cast', {'r_enter', bucket, id, data})
-    end
-    return ref
-  end)}
-  if txn then
-    Txn.abort(txn)
-  end
-  return response
-end
-
-function Replicated:r_delete(ref, bucket, id, timestamp)
-  local txn
-  local response = {pcall(function()
-    txn = splode(Env.txn_begin,
-      'unable to begin r_delete transaction', self.env, nil, 0)
-
-    local combo = bucket .. ':' .. id
-    local object = Txn.get(txn, self.objects, combo, "element_t*")
-
-    if object and object.update > timestamp then
-      xsplode(0, Txn.del, 'unable to delete object', txn,
-        self.objects, combo)
-
-      xsplode(0, Txn.commit,
-        'unable to commit r_delete transaction', txn)
-
-      txn = nil
-
-      -- now i need to send this out to connections that are interested
-      if object.update > timestamp then
-        self:send({'group', {'peers', 'b:' .. bucket, 'id:' .. combo}},
-          '$cast', {'r_delete', bucket, id, timestamp})
-      end
-    end
-    return ref
-  end)}
-  if txn then
-    Txn.abort(txn)
-  end
-  return response
-end
-
-return Replicated

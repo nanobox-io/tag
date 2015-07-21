@@ -37,6 +37,7 @@ return
     ,"pagodabox/cauterize@0.1.1"
     ,"pagodabox/lmmdb@0.1.1"
     ,"pagodabox/logger@0.1.0"
+    ,"pagodabox/profile@0.1.0"
     ,"pagodabox/parse-opts@0.1.0"
     ,"pagodabox/splode@0.1.0"}
   ,files =

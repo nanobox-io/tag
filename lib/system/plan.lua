@@ -20,15 +20,6 @@ end
 
 function Plan:next(on)
   if not on then on = {} end
-
-  -- I hope that I don't really need to sort these values.
-  -- it could get expensive
-  table.sort(on,function(one,two)
-    -- if things are equal, this does not take it into account
-    -- they could be in different orders
-    return one.hash < two.hash
-  end)
-
   
   self.add = {}
   self.remove = {}
@@ -37,26 +28,25 @@ function Plan:next(on)
 
   -- compare the two sets of data, compile a list of things to add,
   -- with a second list of things to remove.
-  -- THIS DEPENDS ON THE DATA BEING SORTED. TODO: make it sort
-  -- independant
+  -- data stored in lmmdb is always sorted
   while lidx <= #on do
 
     if self.on[index] == nil or on[lidx] == nil then
       -- if we run out of data, then we don't need to compare anymore
       break
-    elseif self.on[index].hash > on[lidx].hash then
+    elseif self.on[index] > on[lidx] then
       -- we need to add data points that are members of on and 
       -- not members of self.on
       self.add[#self.add +1] = on[lidx]
       lidx = lidx + 1
-    elseif self.on[index].hash < on[lidx].hash then
+    elseif self.on[index] < on[lidx] then
       -- we need to remove data points that are members of self.on and 
       -- not members of on
       self.remove[#self.remove +1] = self.on[index]
       index = index + 1
     else
-      assert(self.on[index].hash == on[lidx].hash,
-        'got two hashes that were not <, >, or == to each other')
+      assert(self.on[index] == on[lidx],
+        'got two elements that were not <, >, or == to each other')
       lidx = lidx + 1
       index = index + 1
     end

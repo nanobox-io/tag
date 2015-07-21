@@ -450,6 +450,16 @@ function Cursor.get(cursor, key, data, op, icast, cast)
   end
 end
 
+function Cursor.count(cursor)
+  local size = ffi.new('size_t[1]')
+  local err = lmdb.mdb_cursor_count(cursor, size)
+  if err ~= 0 then
+    return MDB.error(err)
+  else
+    return size[0]
+  end
+end
+
 function Cursor.del(cursor, flags)
   local err = lmdb.mdb_cursor_del(cursor, flags)
   return MDB.error(err)

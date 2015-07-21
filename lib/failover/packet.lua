@@ -17,11 +17,10 @@ local ffi = require('ffi')
 local log = require('logger')
 local json = require('json')
 local utl = require('../util')
+local store = require('../store/main').singleton()
 local Packet = Cauterize.Fsm:extend()
 
 function Packet:_init(host,port,node,skip)
-  -- join all the groups we need to be able to dynamically get updates
-  Group.join(self:current(),'b:nodes')
 
   -- create a udp socket
   self.udp = uv.new_udp()
@@ -33,30 +32,13 @@ function Packet:_init(host,port,node,skip)
   self.state = 'disabled'
   self.packet = nil
 
-  -- dynamic config options
-  self.node = node or utl.config_get('node_name')
-  local gossip_config = utl.config_get('nodes_in_cluster')[self.node]
-  gossip_config = json.decode(tostring(gossip_config))
-  uv.udp_bind(self.udp, host or gossip_config.host,
-    port or gossip_config.port)
-  self.max_packets_per_interval = utl.config_watch(self:current(),
-    'max_packets_per_interval', 'update_config')
-
-  self.max_packets_per_interval = 
-    json.decode(tostring(self.max_packets_per_interval))
-  
-  self.nodes = {}
-  local nodes = utl.config_watch(self:current(), 'nodes_in_cluster',
-    'update_nodes')
-  for _,name in ipairs(nodes) do
-    local node = nodes[name]
-    node = json.decode(tostring(node))
-    node.name = name
-    self:add_node(node)
-  end
-  
+  self.node = store:get(nil, {'get', '#node_name'})
+  self.host, self.port = unpack(store:hmget(nil, {'hmget', '!' .. self.node, 'host', 'port'}))
+  uv.udp_bind(self.udp, host or self.host,
+    port or self.port)
   self.nodes_in_last_interval = {}
   self.responses_sent = 0
+  
   if not skip then
     Name.register(self:current(),'packet_server')
   end
@@ -65,22 +47,6 @@ end
 -- set up blank states
 Packet.disabled = {}
 Packet.enabled = {}
-
-
-function Packet:r_enter(bucket,id,value)
-  if bucket == 'nodes' then
-    local element = ffi.new('element_t*',ffi.cast('void *',value))
-    local node = json.decode(tostring(element))
-    node.name = id
-    self:add_node(node)
-  end
-end
-
-function Packet:r_delete(bucket,id)
-  if bucket == 'nodes' then
-    self:remove_node(id)
-  end
-end
 
 function Packet:update_state_on_node(node, state, who)
   Cauterize.Fsm.cast(node, state, who)
@@ -114,8 +80,8 @@ end
 function Packet:parse(msg)
   local who, nodes = nil, {}
 
-  for idx in pairs(self.nodes) do
-    nodes[idx] = 'up'
+  for _,name in pairs(store:smembers(nil,{'smembers', '!nodes'})) do
+    nodes[name] = 'up'
   end
 
   for down_node in string.gmatch(msg,"(%w+)") do
@@ -139,43 +105,37 @@ function Packet.disabled:enable()
 
   -- if we are running, then this node is up
   Cauterize.Fsm.cast(self.node,'up',self.node)
-  self:generate_node_list()
   self:generate_new_packet()
   return true
 end
 
 function Packet.enabled:notify()
   local packets_sent_in_current_interval = self.responses_sent
-  local nodes_left = #self.pending_nodes
 
   self:generate_new_packet()
+  max_packets_per_interval = store:get(nil,{'get','#max_packets_per_interval'})
+  p('packet',max_packets_per_interval,self.packet)
 
   while packets_sent_in_current_interval < 
-      self.max_packets_per_interval do
+      max_packets_per_interval do
 
-    -- if we ran out of nodes, lets grab a new list of nodes
-    if nodes_left == 0 then
-      nodes_left = self:generate_node_list()
-      if nodes_left == 0 then
-        break
-      end
-    end
-
+    local node_name = store:rpoplpush(nil,
+      {'rpoplpush', '#ping_nodes', '#ping_nodes'})
+    local node = store:hmget(nil, {'hmget', '!' .. node_name, 'host', 'port'})
+    p('sending to node', node, node_name)
     -- send a packet to the remote server
-    local who, host, port = unpack(table.remove(self.pending_nodes,
-      nodes_left))
-    if not self.nodes_in_last_interval[who] then
-      self.nodes_in_last_interval[who] = true
-      log.debug('sending packet',self.packet,'to',who)
+    local host, port = unpack(node)
+    if not self.nodes_in_last_interval[node_name] then
+      self.nodes_in_last_interval[node_name] = true
+      log.debug('sending packet',self.packet,'to',node_name)
       uv.udp_send(self.udp, self.packet, host, port)
 
       -- notify node that we are waiting for a response
-      Cauterize.Fsm.cast(who,'start_timer',self.node)
+      Cauterize.Fsm.cast(node_name,'start_timer',self.node)
     end
 
     packets_sent_in_current_interval =
       packets_sent_in_current_interval + 1
-    nodes_left = nodes_left - 1
   end
 
   self.nodes_in_last_interval = {}
@@ -183,7 +143,7 @@ function Packet.enabled:notify()
   -- any packets that we have sent over the limit of
   -- max_packets_per_interval, count towards the next interval
   self.responses_sent =
-    packets_sent_in_current_interval - self.max_packets_per_interval
+    packets_sent_in_current_interval - max_packets_per_interval
 
 end
 
@@ -204,7 +164,7 @@ function Packet:generate_new_packet()
   -- TODO if the packet would be truncated, send the other nodes not
   -- in the current packet off in the next set.
   -- create a list of all nodes that are not up.
-  for name in pairs(self.nodes) do
+  for _,name in pairs(store:smembers(nil, {'smembers', '!nodes'})) do
     if not self:is_node_local(name) then
       local ret = self:get_node_state(name)
       if ret ~= 'up' then
@@ -227,18 +187,6 @@ end
 function Packet:remove_node(node)
   self.nodes[node.name] = nil
   return true
-end
-
-function Packet:generate_node_list()
-  self.pending_nodes = {}
-  local count = 0
-  for idx,node in pairs(self.nodes) do
-    if not self:is_node_local(node.name) then
-      count = count + 1
-      self.pending_nodes[count] = {node.name,node.host,node.port}
-    end
-  end
-  return count
 end
 
 function Packet.enabled:disable()

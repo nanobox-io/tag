@@ -16,7 +16,10 @@ local Fsm = Server:extend()
 -- Class.state:function()
 function Fsm:_perform(ref,fun,...)
   local ret = nil
-  assert(self.state  ~= nil, 'unable to have a nil state')
+  if self.state == nil then
+    p(self)
+    error('unable to have a nil state')
+ end
   if self[self.state] ~= nil and 
       type(self[self.state][fun]) == "function" then
 

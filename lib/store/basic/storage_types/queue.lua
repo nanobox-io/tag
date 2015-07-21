@@ -16,9 +16,6 @@ local Cursor = db.Cursor
 
 exports.cdef = [[
 typedef struct {
-  long count; // total number of members in the queue
-  long head;
-  long tail;
 } queue_t;
 
 typedef struct {
@@ -27,40 +24,31 @@ typedef struct {
 } queue_elem_t;
 ]]
 
+-- should be 1/2 of a 64 bit number or a long
+-- if 1 million new indicies are added every second, we will run
+-- out in 300,000 years.
+-- this NEEDS to be stored somewhere
+local head = ffi.new('unsigned long',tonumber('FFFFFFFFFFFFFFF',16))
+local tail = head
+
 local function push(self, txn, info, front)
   local key = info[2]
   local header, queue = self:resolve(txn, self.objects, key, 'header_t', 'queue_t')
-  local new_header, new_queue = assert(self:reserve(txn, self.objects, key, 'header_t', 'queue_t'))
   if not header then
-    -- should be 1/2 of a 64 bit number or a long
-    -- if 1 million new indicies are added every second, we will run
-    -- out in 300,000 years... for this list.
-    new_queue.head = tonumber('FFFFFFFFFFFFFFF',16)
-    new_queue.tail = new_queue.head
-    new_queue.count = 0
+    local new_header = assert(self:reserve(txn, self.objects, key, 'header_t', 'queue_t'))
     new_header.type = 'QUEUE'
-  else
-    ffi.copy(new_header, header, ffi.sizeof('header_t'))
-    if front then
-      new_queue.tail = queue.tail
-      new_queue.head = queue.head
-    else
-      new_queue.tail = queue.tail
-      new_queue.head = queue.head
-    end
   end
   for i = 3, #info do
-    new_queue.count = new_queue.count + 1
     local elem = info[i]
     local length = #elem
     local total_len = length + ffi.sizeof('queue_elem_t')
     local queue_elem = ffi.cast('queue_elem_t*',ffi.new('char[' .. total_len .. ']'))
     if front then
-      queue_elem.id = new_queue.head
-      new_queue.head = new_queue.head + 1
+      queue_elem.id = head
+      head = head + 1
     else
-      queue_elem.id = new_queue.tail
-      new_queue.tail = new_queue.tail - 1
+      queue_elem.id = tail
+      tail = tail - 1
     end
     queue_elem.len = length
 
@@ -69,7 +57,11 @@ local function push(self, txn, info, front)
 
     assert(Txn.put(txn, self.queue_items, key, {queue_elem,total_len}))
   end
-  return tonumber(new_queue.count)
+  local cursor = assert(Cursor.open(txn, self.queue_items))
+  assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET))
+  local count = assert(Cursor.count(cursor))
+  Cursor.close(cursor)
+  return tonumber(count)
 end
 
 local function pop(self, txn, info, front)
@@ -79,63 +71,67 @@ local function pop(self, txn, info, front)
   if not header then
     return nil
   end
-  if queue.count == 1 then
-    assert(Txn.del(txn, self.objects, key))
-  else
-    local new_header, new_queue = 
-      assert(self:reserve(txn, self.objects, key, 'header_t', 'queue_t'))
-    ffi.copy(new_header, header, ffi.sizeof('header_t') + ffi.sizeof('queue_t'))
-    new_queue.count = new_queue.count - 1
-    if front then
-      new_queue.head = new_queue.head - 1
-    else
-      new_queue.tail = new_queue.tail + 1
-    end
-  end
   local cursor = assert(Cursor.open(txn, self.queue_items))
   assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET))
+  local count = assert(Cursor.count(cursor))
+  if count == 1 then
+    assert(Txn.del(txn, self.objects, key))
+  end
   assert(Cursor.get(cursor, key, nil, front and Cursor.MDB_FIRST_DUP or Cursor.MDB_LAST_DUP))
   local _, queue_elem = assert(Cursor.get(cursor, key, nil, Cursor.MDB_GET_CURRENT, nil, 'queue_elem_t*'))
   assert(Cursor.del(cursor, 0))
+  if front then
+    head = head - 1
+  else
+    tail = tail + 1
+  end
   Cursor.close(cursor)
   local data = ffi.cast('intptr_t', queue_elem) + ffi.sizeof('queue_elem_t')
   return ffi.string(ffi.cast('void*', data), queue_elem.len)
 end
 
--- add an element to the back of the queue
+-- add an element to the head of the queue
 function exports:lpush(txn, info)
   return push(self, txn, info, true)
 end
 
 -- remove an element from the front of the queue
 function exports:lpop(txn, info)
-  return pop(self, txn, info, false)
+  return pop(self, txn, info, true)
 end
 
--- add an element to the front of the queue
+-- add an element to the back of the queue
 function exports:rpush(txn, info)
   return push(self, txn, info, false)
 end
 
 -- remove an element from the back of the queue
 function exports:rpop(txn, info)
-  return pop(self, txn, info, true)
+  return pop(self, txn, info, false)
 end
 
 -- pop an element from one queue to another
 function exports:rpoplpush(txn, info)
   local src = info[2]
   local dest = info[3]
-  local elem = pop(self, txn, {'pop', src}, true)
-  push(self, txn, {'push', dest, elem}, false)
-  return elem
+  local elem = pop(self, txn, {'pop', src}, false)
+  if elem then
+    push(self, txn, {'push', dest, elem}, true)
+    return elem
+  end
 end
 
 -- get the length of a list
 function exports:llen(txn, info)
   local key = info[2]
-  local header, queue = self:resolve(txn, self.objects, key, 'header_t', 'queue_t')
-  return header and tonumber(queue.count) or 0
+  local cursor = assert(Cursor.open(txn, self.queue_items))
+  if not Cursor.get(cursor, key, nil, Cursor.MDB_SET) then
+    return 0
+  else
+    local count = assert(Cursor.count(cursor))
+    Cursor.close(cursor)
+    return tonumber(count)
+  end
 end
 
 local function resolve(index, length)
@@ -178,7 +174,6 @@ function exports:lrange(txn, info)
   -- do some calculations
   local skip, amount, position, direction =
     resolve_start(start, stop, length)
-  p('listing', skip, amount, position == Cursor.MDB_FIRST_DUP, direction == Cursor.MDB_NEXT_DUP)
   if amount == 0 then
     return {}
   end
@@ -217,16 +212,6 @@ function exports:ltrim(txn, info)
     assert(Txn.del(txn, self.objects, key))
     assert(Txn.del(txn, self.queue_items, key))
   else
-    local header, queue = 
-      assert(self:resolve(txn, self.objects, key, 'header_t', 'queue_t'))
-    local new_header, new_queue = 
-      assert(self:reserve(txn, self.objects, key, 'header_t', 'queue_t'))
-
-    ffi.copy(new_header, header, ffi.sizeof('header_t') + ffi.sizeof('queue_t'))
-    new_queue.count = new_queue.count - first - last
-    new_queue.head = new_queue.head - first
-    new_queue.tail = new_queue.tail + last
-
     local cursor = assert(Cursor.open(txn, self.queue_items))
     assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET))
 

@@ -43,10 +43,10 @@ tag -server -config-json '
     ,"port": 1234}
   ,"Tertiary":
     {"host":"10.0.0.3"
-    ,"port": 1234}}'
+    ,"port": 1234}}}'
 ```
 
-the command above will start a single Tag node and start it looking for the other two nodes in the cluster. If the other nodes are started the entire cluster will be online and available, but will not do anything yet. Thats not quite what you need at FooBar co., so you write a few small helper scripts so that Tag knows what to do when a node comes online.
+the command above will start a single Tag node and start it looking for the other two nodes in the cluster. If the other nodes are started the entire cluster will be online and available, but will not do anything yet. That is not quite what you need at FooBar co., so you write a few small helper scripts so that Tag knows what to do when a node comes online.
 
 A system consists of 8 scripts that can be run: install, load, enable, disable, add, remove, up, down. But for this simple project you use just 3 of them: load, add and remove.
 
@@ -82,7 +82,7 @@ tag -server -config-json '
     ,"systems": {"FooBar co. NGINX": 2}}
   ,"Tertiary":
     {"host":"10.0.0.3"
-    ,"port": 1234}
+    ,"port": 1234}}
 "systems":
   {"FooBar co. NGINX":
     {"add": "/var/db/tag/scripts/ip/add"

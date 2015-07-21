@@ -9,17 +9,24 @@
 -- Created :   14 July 2015 by Daniel Barney <daniel@pagodabox.com>
 ----------------------------------------------------------------------
 
+local uv = require('uv')
 local server = require('./api').server
 local Store = require('./store/basic/basic')
 
 local store = Store:new('./tmp-store')
 
--- local profile = require('jit.profile')
+-- local profile = require('profile')
+-- profile.start(997)
 
--- local hrtz = math.floor(tostring(1000000/997))
--- p('calling every',hrtz)
--- profile.start('i' .. hrtz .. 'fl',function(thread, samples, vmstate)
---  print(profile.dumpstack(thread, "lZ;", -20))
+-- local dump = uv.new_timer()
+-- uv.timer_start(dump, 1000, 1000, function()
+--  local count, stacks = profile.dump(2)
+--  if count > 0 then
+--    p('profiler:')
+--    for line, count in pairs(stacks) do
+--      p(line,count)
+--    end
+--  end
 -- end)
 
 server({port = 7007},
@@ -30,11 +37,23 @@ server({port = 7007},
         -- fast path for PONG responses
         old_write('+PONG\r\n')
       else
-        local sucess, ret = store:perform(cmd)
+        local sucess, ret = pcall(store.perform,store,cmd)
         if sucess then
-          write(ret)
+          if type(ret) == 'function' then
+            local thread = coroutine.running()
+            ret(function(info, result)
+              p('i have', info, result)
+              if not pcall(write, info, result) then
+                coroutine.resume(thread)
+                return false
+              end
+            end)
+            coroutine.yield()
+          else
+            write(ret)
+          end
         else
-          -- errors need to be printed out this way so they are are
+          -- errors need to be printed out this way so they are
           -- encoded correctly
           local value = '-' .. ret .. '\r\n'
           old_write(value)
