@@ -76,8 +76,10 @@ end
 -- so that if it doesn't respond in time we will automatically mark
 -- this node as down
 function Node.up:start_timer(who)
+  local response_interval = 
+    store:get(nil, {'get', '#node_wait_for_response_interval'})
   self.timers[who] = self:send_after('$self',
-    self.node_wait_for_response_intreval, '$cast', {'suspicious', who})
+    response_interval, '$cast', {'suspicious', who})
 end
 
 function Node:get_state()
@@ -95,7 +97,7 @@ function Node:change_state_if_quorum_satisfied()
       up_quorum_count = up_quorum_count + 1
     end
   end
-  local needed_quorum = store:scard(nil, {'scard','!nodes'})/ 2 + 1
+  local needed_quorum = math.floor(store:scard(nil, {'scard','!nodes'})/ 2) + 1
 
   if up_quorum_count >= needed_quorum then
     self:change_to_new_state_and_notify('up')

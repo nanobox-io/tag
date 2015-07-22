@@ -114,7 +114,6 @@ function Packet.enabled:notify()
 
   self:generate_new_packet()
   max_packets_per_interval = store:get(nil,{'get','#max_packets_per_interval'})
-  p('packet',max_packets_per_interval,self.packet)
 
   while packets_sent_in_current_interval < 
       max_packets_per_interval do
@@ -122,7 +121,7 @@ function Packet.enabled:notify()
     local node_name = store:rpoplpush(nil,
       {'rpoplpush', '#ping_nodes', '#ping_nodes'})
     local node = store:hmget(nil, {'hmget', '!' .. node_name, 'host', 'port'})
-    p('sending to node', node, node_name)
+
     -- send a packet to the remote server
     local host, port = unpack(node)
     if not self.nodes_in_last_interval[node_name] then

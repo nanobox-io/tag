@@ -41,9 +41,7 @@ function Nodes:r_enter(id)
   self:add_child(Node,
     {name = id
     ,args = {{name = id}}})
-  if id ~= store:get(nil, {'get', '#node_name'}) then
-    p('number of nodes:',store:lpush(nil,{'lpush', '#ping_nodes', id}),id)
-  end
+  store:lpush(nil,{'lpush', '#ping_nodes', id})
 end
 
 function Nodes:r_delete(id)
