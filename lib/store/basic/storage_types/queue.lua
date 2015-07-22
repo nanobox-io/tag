@@ -24,6 +24,10 @@ typedef struct {
 } queue_elem_t;
 ]]
 
+exports.flags = 
+  {llen = Txn.MDB_RDONLY
+  ,lrange = Txn.MDB_RDONLY}
+
 -- should be 1/2 of a 64 bit number or a long
 -- if 1 million new indicies are added every second, we will run
 -- out in 300,000 years.
@@ -232,4 +236,7 @@ function exports:ltrim(txn, info)
   return 'ok'
 end
 
+function exports:lrem(txn, info)
+
+end
 -- I need blocking varieties of most of these...

@@ -12,6 +12,10 @@
 local db = require('lmmdb')
 local Txn = db.Txn
 
+exports.flags = 
+  {exists = Txn.MDB_RDONLY
+  ,type = Txn.MDB_RDONLY}
+
 -- remove a key from the database, this should be a tombstoned value
 function exports:del(txn, info)
   local key = info[2]

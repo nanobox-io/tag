@@ -29,7 +29,8 @@ typedef struct {
 
 exports.flags = 
   {scard = Txn.MDB_RDONLY
-  ,members = Txn.MDB_RDONLY}
+  ,members = Txn.MDB_RDONLY
+  ,sismember = Txn.MDB_RDONLY}
 
 local function check_exist(cursor, key, elem)
   local exist =

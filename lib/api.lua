@@ -24,7 +24,7 @@ local function wrapReader(decoder,read)
         return chunk
       end
       local next_chunk = read()
-      if next_chunk == nil then error('redis connection closed') end
+      if next_chunk == nil then return nil end
       buffer = buffer .. next_chunk
     end
   end
@@ -38,51 +38,42 @@ local function wrapWriter(encoder,write)
   end
 end
 
-function bufferWrite(write, size, max_elems)
-  if not size and not max_elems then
-    return write
-  else
-    local len = 0
-    local count = 0
-    local running = false
-    local buffer = {}
-    local timer = uv.new_timer()
+function bufferWrite(write)
+  local count = 0
+  local running = false
+  local buffer = {}
+  local writer = uv.new_idle()
 
-    local function write_buffer(direct)
+  local function write_buffer(direct)
+    if count == 0 then
       running = false
-      if count > 0 then
-        local packet = table.concat(buffer)
-        buffer = {}
-        len = 0
-        count = 0
-        if direct then
-          return write(packet)
-        else
-          return coroutine.wrap(write)(packet)
-       end
-      end
+      uv.idle_stop(writer)
+    else
+      count = 0
+      write(buffer)
+      buffer = {}
     end
+  end
 
-    return function(data)
-      len = len + #data
-      count = count + 1
-      buffer[count] = data
-      if len > size or count > max_elems then
-        write_buffer(true)
-      elseif not running then
-        running = true
-        uv.timer_start(timer, 1, 0, write_buffer)
-      end
+  return function(data)
+    count = count + 1
+    buffer[count] = data
+    if not running then
+      running = true
+      uv.idle_start(writer, write_buffer)
     end
   end
 end
 
 function exports.server(opts, handler)
-  net.createServer(opts,function(old_read,old_write,socket)
+  net.createServer(opts,function(old_read, old_write, socket)
     uv.tcp_nodelay(socket, false)
-    -- local buffer = bufferWrite(old_write, 1024, 50)
+    local function tmp_write(...)
+      return assert(socket:write(...))
+    end
+    local buffer = bufferWrite(tmp_write)
     local read = wrapReader(codec.decoder, old_read)
-    local write = wrapWriter(codec.encoder, old_write)
-    handler(read, write, socket, old_read, old_write)
+    local write = wrapWriter(codec.encoder, buffer)
+    handler(read, write, socket, old_read, buffer)
   end)
 end

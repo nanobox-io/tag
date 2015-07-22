@@ -26,6 +26,11 @@ typedef struct {
 } hash_element_t;
 ]]
 
+exports.flags = 
+  {hmget = Txn.MDB_RDONLY
+  ,hget = Txn.MDB_RDONLY
+  ,hgetall = Txn.MDB_RDONLY}
+
 function ensure_exists(self, txn, info)
   local key = info[2]
   local header, queue = self:resolve(txn, self.objects, key, 'header_t', 'hash_t')

@@ -41,12 +41,12 @@ function Nodes:r_enter(id)
   self:add_child(Node,
     {name = id
     ,args = {{name = id}}})
-  store:lpush(nil,{'lpush', '#ping_nodes', id})
+  store:lpush(nil, {'lpush', '#ping_nodes', id})
 end
 
 function Nodes:r_delete(id)
   self:remove_child(id)
-  store:lrem(nil,{'lpush', '#ping_nodes', id, 0})
+  store:lrem(nil, {'lpush', '#ping_nodes', id, 0})
 end
 
 local Failover = Cauterize.Supervisor:extend()

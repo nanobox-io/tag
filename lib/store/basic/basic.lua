@@ -20,8 +20,8 @@ local Txn = db.Txn
 
 local ffi = require("ffi")
 local jit = require('jit')
-local folder = jit.os .. '_' .. jit.arch
-local compare = module:action('./' .. folder ..'/libcompare.so', ffi.load)
+local folder = jit.os .. '-' .. jit.arch
+local compare = assert(module:action('../../' .. folder ..'/libcompare.so', ffi.load))
 
 ffi.cdef[[
 int compare_queue_objs(const MDB_val *a, const MDB_val *b);
@@ -104,17 +104,43 @@ function Basic:perform(info, read, write)
   end
 end
 
+-- create a cache that can be cleaned out by the gc.
+local cache = {}
+setmetatable(cache, {__mode = "v"})
+
 local function compose(cmd, fun, valid_types)
   return function(self, parent, info, ...)
-    local txn = Env.txn_begin(self.env, parent, 0)
-    local sucess, ret = fun(self, txn, info, ...)
+    local flags = self.flags[cmd] or 0
+    local key
+    if bit.band(flags, Txn.MDB_RDONLY) > 0 and info[2] then
+      key = table.concat(info, ' ')
+      local key_cache = cache[info[2]]
+      if key_cache then
+        local ret = key_cache[key]
+        if ret then 
+          return ret, key
+        end
+      end
+    elseif info[2] then
+      cache[info[2]] = nil
+    end
+    local txn = Env.txn_begin(self.env, parent, flags)
+    local sucess = fun(self, txn, info, ...)
     if sucess then
       -- if we need to log the function, this is where that would go
       assert(Txn.commit(txn))
+      if bit.band(flags, Txn.MDB_RDONLY) > 0 and info[2] and key then
+        local key_cache = cache[info[2]]
+        if not key_cache then
+          key_cache = {}
+          cache[info[2]] = key_cache
+        end
+        key_cache[key] = sucess
+      end
     else
       Txn.abort(txn)
     end
-    return sucess, ret
+    return sucess
   end
 end
 

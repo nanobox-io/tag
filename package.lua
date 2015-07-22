@@ -43,6 +43,6 @@ return
   ,files =
     {"**.lua"
     ,"**.txt"
-    ,"**.so"
+    ,"lib/$OS-$ARCH/*"
     ,"!examples"
     ,"!tests"}}
