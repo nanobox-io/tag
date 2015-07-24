@@ -67,9 +67,10 @@ end
 
 function exports.server(opts, handler)
   net.createServer(opts,function(old_read, old_write, socket)
+    -- p(socket:send_buffer_size(1024 * 1024), socket:recv_buffer_size(1024 * 1024))
     uv.tcp_nodelay(socket, false)
-    local function tmp_write(...)
-      return assert(socket:write(...))
+    local function tmp_write(data)
+      return assert(socket:write(data, function() end))
     end
     local buffer = bufferWrite(tmp_write)
     local read = wrapReader(codec.decoder, old_read)

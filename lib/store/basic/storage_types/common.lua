@@ -10,7 +10,9 @@
 ----------------------------------------------------------------------
 
 local db = require('lmmdb')
+local types = require('ffi-cache')
 local Txn = db.Txn
+local DB = db.DB
 
 exports.flags = 
   {exists = Txn.MDB_RDONLY

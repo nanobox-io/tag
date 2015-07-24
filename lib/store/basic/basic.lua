@@ -23,6 +23,8 @@ local jit = require('jit')
 local folder = jit.os .. '-' .. jit.arch
 local compare = assert(module:action('../../' .. folder ..'/libcompare.so', ffi.load))
 
+local types = require('ffi-cache')
+
 ffi.cdef[[
 int compare_queue_objs(const MDB_val *a, const MDB_val *b);
 int compare_hash_objs(const MDB_val *a, const MDB_val *b);
@@ -47,26 +49,19 @@ function Basic:initialize(path)
   Env.set_mapsize(self.env, 1024*1024*1024 * 10)
   Env.reader_check(self.env) -- make sure that no stale readers exist
 
-  -- open the enviroment
-  while true do
 
-    -- Env.MDB_NOSUBDIR store data in one file
-    -- Env.MDB_NOTLS allow multiple read_only transactions
-    -- Env.MDB_NOLOCK locking is not handled by the library
-    local sucess, err = Env.open(self.env, path,
-      Env.MDB_NOSUBDIR + Env.MDB_NOTLS + Env.MDB_NOLOCK + Env.MDB_NOSYNC,
-      tonumber('0644', 8))
-    
-    if not sucess then
-      -- work around for solaris.
-      if err == 'Device busy' then
-        fs.unlinkSync(path .. '-lock')
-      else
-        error('unable to open store enviroment', err)
-      end
-    else
-      break
-    end
+  -- Env.MDB_NOSUBDIR store data in one file
+  -- Env.MDB_NOTLS allow multiple read_only transactions
+  -- Env.MDB_NOLOCK locking is not handled by the library
+  -- Env.MDB_NOSYNC defer flushing changed pages to disk until later
+  -- Env.MDB_NOMEMINIT do not init memory
+  local sucess, err = Env.open(self.env, path,
+    Env.MDB_NOSUBDIR + Env.MDB_NOTLS + Env.MDB_NOLOCK + Env.MDB_NOSYNC + Env.MDB_NOMEMINIT,
+    tonumber('0644', 8))
+  
+  if not sucess then
+    p(err, path)
+    error('unable to open store enviroment', err)
   end
 
   -- create the tables that we use
@@ -91,7 +86,6 @@ function Basic:initialize(path)
   -- we commit the transaction so that our tables are created
   assert(Txn.commit(txn))
   log.info('database was opened')
-  self.txn_timer = uv.new_timer()
   self.tails = {}
 end
 
@@ -100,7 +94,7 @@ function Basic:perform(info, read, write)
   if Basic.valid_cmds[name] then
     return self[name](self, nil, info, read, write)
   else
-    return error('UNKNOWN COMMAND')
+    return nil, 'UNKNOWN COMMAND'
   end
 end
 
@@ -117,15 +111,15 @@ local function compose(cmd, fun, valid_types)
       local key_cache = cache[info[2]]
       if key_cache then
         local ret = key_cache[key]
-        if ret then 
-          return ret, key
+        if ret then
+          return ret, nil, key
         end
       end
     elseif info[2] then
       cache[info[2]] = nil
     end
     local txn = Env.txn_begin(self.env, parent, flags)
-    local sucess = fun(self, txn, info, ...)
+    local sucess, ret = pcall(fun,self, txn, info, ...)
     if sucess then
       -- if we need to log the function, this is where that would go
       assert(Txn.commit(txn))
@@ -135,12 +129,13 @@ local function compose(cmd, fun, valid_types)
           key_cache = {}
           cache[info[2]] = key_cache
         end
-        key_cache[key] = sucess
+        key_cache[key] = ret
       end
+      return ret, nil, cache_key
     else
       Txn.abort(txn)
+      return nil, ret
     end
-    return sucess
   end
 end
 
@@ -178,18 +173,31 @@ for _, type in ipairs(storage_types) do
   end
 end
 
-local function resolve(data, types, headers)
-  for _, t in ipairs(types) do
+local function resolve(data, type_list, headers)
+  for _, t in ipairs(type_list) do
     if type(t) == 'number' then
-      headers[#headers + 1] = ffi.cast('void *', data)
-      data = ffi.cast('intptr_t', data) + t
+      headers[#headers + 1] = ffi.cast(types.typeof["void*"], data)
+      data = ffi.cast(types.typeof.intptr_t, data) + t
     else
-      headers[#headers + 1] = ffi.cast(t .. '*', data)
-      data = ffi.cast('intptr_t', data) + ffi.sizeof(t)
+      headers[#headers + 1] = ffi.cast(types.typeof[t .. '*'], data)
+      data = ffi.cast(types.typeof.intptr_t, data) + types.sizeof[t]
     end
   end
-  headers[#headers + 1] = ffi.cast('void *',data)
+  headers[#headers + 1] = ffi.cast(types.typeof["void*"],data)
   return unpack(headers)
+end
+
+Basic.valid_cmds.flushall = true
+function Basic:flushall(txn, info)
+  p('flushing all the data from the database', txn, info)
+  local txn = Env.txn_begin(self.env, txn, 0)
+  assert(DB.drop(txn, self.objects, 0))
+  assert(DB.drop(txn, self.set_elements, 0))
+  assert(DB.drop(txn, self.queue_items, 0))
+  assert(DB.drop(txn, self.hash_elements, 0))
+  assert(Txn.commit(txn))
+  cache = {}
+  return 'ok'
 end
 
 function Basic:update_time(txn, key)
@@ -200,7 +208,7 @@ function Basic:resolve(txn, table, key, type, ...)
   local data, err = Txn.get(txn, table, key, type .. '*')
   if data then
     local headers = {data}
-    data = ffi.cast('intptr_t', data) + ffi.sizeof(type)
+    data = ffi.cast(types.typeof.intptr_t, data) + types.sizeof[type]
     return resolve(data, {...}, headers)
   else
     return false, err
@@ -208,19 +216,19 @@ function Basic:resolve(txn, table, key, type, ...)
 end
 
 function Basic:reserve(txn, database, key, ...)
-  local types = {...}
+  local type_list = {...}
   local total_len = 0
-  for _, t in ipairs(types) do
+  for _, t in ipairs(type_list) do
     if type(t) == 'number' then
       total_len = total_len + t
     else
-      total_len = total_len + ffi.sizeof(t)
+      total_len = total_len + types.sizeof[t]
     end
   end
 
   local data = 
     assert(Txn.put(txn, database, key, total_len, Txn.MDB_RESERVE))
-  return resolve(data, types, {})
+  return resolve(data, type_list, {})
 end
 
 return Basic

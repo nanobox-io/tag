@@ -12,6 +12,7 @@
 local ffi = require('ffi')
 local hrtime = require('uv').hrtime
 local db = require('lmmdb')
+local types = require('ffi-cache')
 local Txn = db.Txn
 local Cursor = db.Cursor
 
@@ -56,14 +57,15 @@ function exports:hmset(txn, info)
     end
     local field_len = #field
     local value_len = #value
-    local total_len = field_len + value_len + ffi.sizeof('hash_element_t')
-    local hash_elem = ffi.cast('hash_element_t*',ffi.new('char[' .. total_len .. ']'))
-    local field_data = ffi.cast('intptr_t', hash_elem) + ffi.sizeof('hash_element_t')
+    local total_len = field_len + value_len + types.sizeof.hash_element_t
+    local bytes = ffi.gc(ffi.C.malloc(total_len), ffi.C.free)
+    local hash_elem = ffi.cast(types.typeof["hash_element_t*"], bytes)
+    local field_data = ffi.cast(types.typeof.intptr_t, hash_elem) + types.sizeof.hash_element_t
     local value_data = field_data + field_len
     hash_elem.field_len = field_len
     hash_elem.value_len = value_len
-    ffi.copy(ffi.cast('void*', field_data), field, field_len)
-    ffi.copy(ffi.cast('void*', value_data), value, value_len)
+    ffi.copy(ffi.cast(types.typeof["void*"], field_data), field, field_len)
+    ffi.copy(ffi.cast(types.typeof["void*"], value_data), value, value_len)
     assert(Txn.put(txn, self.hash_elements, key, {hash_elem, total_len}))
   end
   return 'ok'
@@ -76,19 +78,20 @@ function exports:hmget(txn, info)
   for i = 3, #info do
     local field = info[i]
     local length = #field
-    local total_len = length + ffi.sizeof('hash_element_t')
-    local hash_field = ffi.cast('hash_element_t*',ffi.new('char[' .. total_len .. ']'))
+    local total_len = length + types.sizeof.hash_element_t
+    local bytes = ffi.gc(ffi.C.malloc(total_len), ffi.C.free)
+    local hash_field = ffi.cast('hash_element_t*', bytes)
     hash_field.field_len = length
     hash_field.value_len = 0
-    local data = ffi.cast('intptr_t', hash_field) + ffi.sizeof('hash_element_t')
-    ffi.copy(ffi.cast('void*', data), field, length)
+    local data = ffi.cast(types.typeof.intptr_t, hash_field) + types.sizeof.hash_element_t
+    ffi.copy(ffi.cast(types.typeof["void*"], data), field, length)
     local sucess, hash_elem = 
       Cursor.get(cursor, key, {hash_field, total_len}, Cursor.MDB_GET_BOTH, nil,
         'hash_element_t*')
     values.n = values.n + 1
     if sucess then
-      local data = ffi.cast('intptr_t', hash_elem) + ffi.sizeof('hash_element_t') + hash_elem.field_len
-      values[values.n] = ffi.string(ffi.cast('void*', data), hash_elem.value_len)
+      local data = ffi.cast(types.typeof.intptr_t, hash_elem) + types.sizeof.hash_element_t + hash_elem.field_len
+      values[values.n] = ffi.string(ffi.cast(types.typeof["void*"], data), hash_elem.value_len)
     end
   end
   Cursor.close(cursor)
@@ -111,11 +114,11 @@ function exports:hgetall(txn, info)
     local _, hash_elem = 
       assert(Cursor.get(cursor, key, nil, Cursor.MDB_GET_CURRENT, nil,
         'hash_element_t*'))
-    local field_data = ffi.cast('intptr_t', hash_elem) + ffi.sizeof('hash_element_t')
+    local field_data = ffi.cast(types.typeof.intptr_t, hash_elem) + types.sizeof.hash_element_t
     local value_data = field_data + hash_elem.field_len
-    values[#values + 1] = ffi.string(ffi.cast('void*', field_data), 
+    values[#values + 1] = ffi.string(ffi.cast(types.typeof["void*"], field_data), 
       hash_elem.field_len)
-    values[#values + 1] = ffi.string(ffi.cast('void*', value_data),
+    values[#values + 1] = ffi.string(ffi.cast(types.typeof["void*"], value_data),
       hash_elem.value_len)
 
     if not Cursor.get(cursor, key, nil, Cursor.MDB_NEXT_DUP) then

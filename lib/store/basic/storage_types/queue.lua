@@ -11,6 +11,7 @@
 
 local ffi = require('ffi')
 local db = require('lmmdb')
+local types = require('ffi-cache')
 local Txn = db.Txn
 local Cursor = db.Cursor
 
@@ -23,6 +24,12 @@ typedef struct {
   int len; // length of data to be stored
 } queue_elem_t;
 ]]
+
+ffi.cdef([[
+void *malloc(size_t size);
+void free(void *ptr);
+]])
+
 
 exports.flags = 
   {llen = Txn.MDB_RDONLY
@@ -45,8 +52,9 @@ local function push(self, txn, info, front)
   for i = 3, #info do
     local elem = info[i]
     local length = #elem
-    local total_len = length + ffi.sizeof('queue_elem_t')
-    local queue_elem = ffi.cast('queue_elem_t*',ffi.new('char[' .. total_len .. ']'))
+    local total_len = length + types.sizeof.queue_elem_t
+    local bytes = ffi.gc(ffi.C.malloc(total_len), ffi.C.free)
+    local queue_elem = ffi.cast(types.typeof["queue_elem_t*"], bytes)
     if front then
       queue_elem.id = head
       head = head + 1
@@ -56,13 +64,13 @@ local function push(self, txn, info, front)
     end
     queue_elem.len = length
 
-    local data = ffi.cast('intptr_t', queue_elem) + ffi.sizeof('queue_elem_t')
-    ffi.copy(ffi.cast('void*', data), elem, length)
+    local data = ffi.cast(types.typeof.intptr_t, queue_elem) + types.sizeof.queue_elem_t
+    ffi.copy(ffi.cast(types.typeof["void*"], data), elem, length)
 
     assert(Txn.put(txn, self.queue_items, key, {queue_elem,total_len}))
   end
   local cursor = assert(Cursor.open(txn, self.queue_items))
-  assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET))
+  assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET, -1, -1))
   local count = assert(Cursor.count(cursor))
   Cursor.close(cursor)
   return tonumber(count)
@@ -90,8 +98,8 @@ local function pop(self, txn, info, front)
     tail = tail + 1
   end
   Cursor.close(cursor)
-  local data = ffi.cast('intptr_t', queue_elem) + ffi.sizeof('queue_elem_t')
-  return ffi.string(ffi.cast('void*', data), queue_elem.len)
+  local data = ffi.cast(types.typeof.intptr_t, queue_elem) + types.sizeof.queue_elem_t
+  return ffi.string(ffi.cast(types.typeof["void*"], data), queue_elem.len)
 end
 
 -- add an element to the head of the queue
@@ -193,8 +201,8 @@ function exports:lrange(txn, info)
     amount = amount - 1
     local _, queue_elem = 
       assert(Cursor.get(cursor, key, nil, Cursor.MDB_GET_CURRENT, nil, 'queue_elem_t*'))
-    local data = ffi.cast('intptr_t', queue_elem) + ffi.sizeof('queue_elem_t')
-    list[#list + 1] = ffi.string(ffi.cast('void*', data), queue_elem.len)
+    local data = ffi.cast(types.typeof.intptr_t, queue_elem) + types.sizeof.queue_elem_t
+    list[#list + 1] = ffi.string(ffi.cast(types.typeof["void*"], data), queue_elem.len)
     -- I need to see if this can fail
     Cursor.get(cursor, key, nil, Cursor.MDB_NEXT_DUP)
   end

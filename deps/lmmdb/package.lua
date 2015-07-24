@@ -20,6 +20,8 @@ return
   ,homepage =
     "https://github.com/pagodabox/tag/blob/master/deps/lmmdb"
   ,description = "A simple wrapper around lmmdb"
+  ,deps = 
+    {"pagodabox/ffi-cache@0.1.0"}
   ,files =
     {"**.lua"
     ,"**.so"

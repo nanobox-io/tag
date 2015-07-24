@@ -11,6 +11,7 @@
 
 local ffi = require('ffi')
 local db = require('lmmdb')
+local types = require('ffi-cache')
 local Txn = db.Txn
 
 exports.cdef = [[
@@ -35,7 +36,7 @@ function exports:incr(txn, info, container_type, header_type)
   local new_header, new_number =
     assert(self:reserve(txn, self.objects, key, 'header_t', struct))
   if header then
-    ffi.copy(new_header, header, ffi.sizeof('header_t') + ffi.sizeof(struct))
+    ffi.copy(new_header, header, types.sizeof.header_t + types.sizeof[struct])
   else
     new_header.type = type
   end

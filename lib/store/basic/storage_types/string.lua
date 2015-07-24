@@ -11,6 +11,7 @@
 
 local ffi = require('ffi')
 local Txn = require('lmmdb').Txn
+local types = require('ffi-cache')
 
 exports.cdef = [[
 typedef struct {
@@ -29,7 +30,7 @@ function exports:get(txn, info)
     if header.type == 1 then
       return ffi.string(value, string.len)
     else
-      local number = ffi.cast('number_t*', string)
+      local number = types["number_t*"](string)
       return tonumber(number.count)
     end
   end

@@ -12,6 +12,7 @@
 local ffi = require('ffi')
 local hrtime = require('uv').hrtime
 local db = require('lmmdb')
+local types = require('ffi-cache')
 local Txn = db.Txn
 local Cursor = db.Cursor
 
