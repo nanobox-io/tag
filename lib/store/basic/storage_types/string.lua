@@ -30,7 +30,7 @@ function exports:get(txn, info)
     if header.type == 1 then
       return ffi.string(value, string.len)
     else
-      local number = types["number_t*"](string)
+      local number = types.typeof["number_t*"](string)
       return tonumber(number.count)
     end
   end

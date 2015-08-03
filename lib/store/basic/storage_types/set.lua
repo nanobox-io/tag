@@ -35,7 +35,7 @@ exports.flags =
 
 local function check_exist(cursor, key, elem)
   local exist =
-    Cursor.get(cursor, key, elem, Cursor.MDB_GET_BOTH)
+    Cursor.get(cursor, key, elem, Cursor.MDB_GET_BOTH, nil, -1)
   return exist and true or false
 end
 

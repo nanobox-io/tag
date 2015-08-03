@@ -84,13 +84,13 @@ local function pop(self, txn, info, front)
     return nil
   end
   local cursor = assert(Cursor.open(txn, self.queue_items))
-  assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET))
+  assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET, -1, -1))
   local count = assert(Cursor.count(cursor))
   if count == 1 then
     assert(Txn.del(txn, self.objects, key))
   end
-  assert(Cursor.get(cursor, key, nil, front and Cursor.MDB_FIRST_DUP or Cursor.MDB_LAST_DUP))
-  local _, queue_elem = assert(Cursor.get(cursor, key, nil, Cursor.MDB_GET_CURRENT, nil, 'queue_elem_t*'))
+  assert(Cursor.get(cursor, key, nil, front and Cursor.MDB_FIRST_DUP or Cursor.MDB_LAST_DUP, -1, -1))
+  local _, queue_elem = assert(Cursor.get(cursor, key, nil, Cursor.MDB_GET_CURRENT, -1, 'queue_elem_t*'))
   assert(Cursor.del(cursor, 0))
   if front then
     head = head - 1
@@ -137,7 +137,7 @@ end
 function exports:llen(txn, info)
   local key = info[2]
   local cursor = assert(Cursor.open(txn, self.queue_items))
-  if not Cursor.get(cursor, key, nil, Cursor.MDB_SET) then
+  if not Cursor.get(cursor, key, nil, Cursor.MDB_SET, -1, -1) then
     return 0
   else
     local count = assert(Cursor.count(cursor))
@@ -191,20 +191,20 @@ function exports:lrange(txn, info)
   end
   local list = {}
   local cursor = assert(Cursor.open(txn, self.queue_items))
-  assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET))
-  assert(Cursor.get(cursor, key, nil, position))
+  assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET -1, -1))
+  assert(Cursor.get(cursor, key, nil, position -1, -1))
   while skip > 0 do
     skip = skip - 1
-    assert(Cursor.get(cursor, key, nil, direction))
+    assert(Cursor.get(cursor, key, nil, direction, -1, -1))
   end
   while amount > 0 do
     amount = amount - 1
     local _, queue_elem = 
-      assert(Cursor.get(cursor, key, nil, Cursor.MDB_GET_CURRENT, nil, 'queue_elem_t*'))
+      assert(Cursor.get(cursor, key, nil, Cursor.MDB_GET_CURRENT, -1, 'queue_elem_t*'))
     local data = ffi.cast(types.typeof.intptr_t, queue_elem) + types.sizeof.queue_elem_t
     list[#list + 1] = ffi.string(ffi.cast(types.typeof["void*"], data), queue_elem.len)
     -- I need to see if this can fail
-    Cursor.get(cursor, key, nil, Cursor.MDB_NEXT_DUP)
+    Cursor.get(cursor, key, nil, Cursor.MDB_NEXT_DUP, -1, -1)
   end
   Cursor.close(cursor)
   return list
@@ -225,18 +225,18 @@ function exports:ltrim(txn, info)
     assert(Txn.del(txn, self.queue_items, key))
   else
     local cursor = assert(Cursor.open(txn, self.queue_items))
-    assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET))
+    assert(Cursor.get(cursor, key, nil, Cursor.MDB_SET, -1, -1))
 
     while first > 0 do
       first = first - 1
-      assert(Cursor.get(cursor, key, nil ,Cursor.MDB_FIRST_DUP))
-      assert(Cursor.del(cursor, 0))
+      assert(Cursor.get(cursor, key, nil ,Cursor.MDB_FIRST_DUP, -1, -1))
+      assert(Cursor.del(cursor, 0, -1, -1))
     end
 
     while last > 0 do
       last = last - 1
-      assert(Cursor.get(cursor, key, nil, Cursor.MDB_LAST_DUP))
-      assert(Cursor.del(cursor, 0))
+      assert(Cursor.get(cursor, key, nil, Cursor.MDB_LAST_DUP, -1, -1))
+      assert(Cursor.del(cursor, 0, -1, -1))
     end
 
     Cursor.close(cursor)

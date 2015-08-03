@@ -86,6 +86,7 @@ function Basic:initialize(path)
   -- we commit the transaction so that our tables are created
   assert(Txn.commit(txn))
   log.info('database was opened')
+  self.txn_batcher = uv.new_idle()
   self.tails = {}
 end
 
@@ -96,6 +97,18 @@ function Basic:perform(info, read, write)
   else
     return nil, 'UNKNOWN COMMAND'
   end
+end
+
+-- batch txn so that writes are compressed
+function Basic:get_parent(flags)
+  if self.txn then return self.txn end
+  self.txn = assert(Env.txn_begin(self.env, nil, flags or 0))
+  uv.idle_start(self.txn_batcher, function()
+    assert(Txn.commit(self.txn))
+    self.txn = nil
+    uv.idle_stop(self.txn_batcher)
+  end)
+  return self.txn
 end
 
 -- create a cache that can be cleaned out by the gc.
@@ -118,11 +131,16 @@ local function compose(cmd, fun, valid_types)
     elseif info[2] then
       cache[info[2]] = nil
     end
-    local txn = Env.txn_begin(self.env, parent, flags)
+    local txn = parent or self:get_parent(flags)
+    -- local txn, err = Env.txn_begin(self.env, parent, flags)
+    if not txn then
+      p(parent, info, txn, err)
+      error(err)
+    end
     local sucess, ret = pcall(fun,self, txn, info, ...)
     if sucess then
       -- if we need to log the function, this is where that would go
-      assert(Txn.commit(txn))
+      -- assert(Txn.commit(txn))
       if bit.band(flags, Txn.MDB_RDONLY) > 0 and info[2] and key then
         local key_cache = cache[info[2]]
         if not key_cache then
@@ -133,7 +151,7 @@ local function compose(cmd, fun, valid_types)
       end
       return ret, nil, cache_key
     else
-      Txn.abort(txn)
+      -- Txn.abort(txn)
       return nil, ret
     end
   end

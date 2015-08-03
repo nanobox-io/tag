@@ -308,6 +308,7 @@ function Txn.renew(txn)
   return MDB.error(err)
 end
 
+local mdb_put = lmdb.mdb_put
 function Txn.put(txn, dbi, key, data, flags)
   if not flags then flags = 0 end
   local reserve = bit.band(flags,Txn.MDB_RESERVE) > 0 
@@ -320,7 +321,7 @@ function Txn.put(txn, dbi, key, data, flags)
   else
     value = build_MDB_val(data, flags)
   end
-  local err = lmdb.mdb_put(txn, dbi, index, value, flags)
+  local err = mdb_put(txn, dbi, index, value, flags)
   if reserve then
     return MDB.error(err, value[0].mv_data)
   else

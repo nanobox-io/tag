@@ -11,35 +11,25 @@
 
 local log = require('logger')
 local apply_opts = require('parse-opts')
+local codec = require('redis-codec')
+local net = require('coro-net')
+local wrap = require('./wrappers')
+coroutine.wrap(function()
+  local base_cli_opts = 
+    {host = '127.0.0.1'
+    ,port = 7007}
 
-local base_cli_opts = 
-  {host = '127.0.0.1'
-  ,port = 1234}
+  args[0] = nil
+  apply_opts(base_cli_opts, args)
+  local cmd_name = args[1]
+  assert(cmd_name, 'missing command')
+  local old_reader, old_writer = assert(net.connect(base_cli_opts))
+  local read = wrap.reader(codec.decoder, old_reader)
+  local write = wrap.writer(codec.encoder, old_writer)
+  assert(write(args))
+  local res = read()
+  p(res)
+  os.exit(0)
+end)()
 
-local valid_commands = 
-  {join = true
-  ,leave = true
-  ,enter = true
-  ,fetch = true
-  ,bench = true
-  ,delete = true}
-
-apply_opts(base_cli_opts,args)
-
-local cmd_name = args[1]
-assert(cmd_name,'missing command')
-
-if valid_commands[cmd_name] then
-  log.info('running cmd',cmd_name)
-  local module = require('./cli/' .. cmd_name)
-  local cmd_opts, cmd = module.cmd_opts, module.cmd
-  cmd_opts = cmd_opts or {}
-  table.remove(args,1)
-  apply_opts(cmd_opts,args)
-  log.info('what?',base_cli_opts,cmd_opts,unpack(args))
-  cmd(base_cli_opts,cmd_opts,unpack(args))
-  log.info('entering uv loop')
-  p(require('uv').run())
-else
-  error('invalid command: '..cmd_name)
-end
+require('uv').run()

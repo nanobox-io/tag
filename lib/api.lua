@@ -11,33 +11,9 @@
 local codec = require('redis-codec')
 local net = require('coro-net')
 local uv = require('uv')
+local wrap = require('./wrappers')
 
--- need custom wrappers to support returning nil.
-local function wrapReader(decoder,read)
-  local buffer = ''
-  local decode = decoder()
-  return function()
-    while true do
-      local chunk, rest = decode(buffer)
-      if rest then
-        buffer = rest
-        return chunk
-      end
-      local next_chunk = read()
-      if next_chunk == nil then return nil end
-      buffer = buffer .. next_chunk
-    end
-  end
-end
-
-local function wrapWriter(encoder,write)
-  local encode = encoder()
-  return function(...)
-    local data = encode(...)
-    return write(data)
-  end
-end
-
+-- buffer up data before sending it out
 function bufferWrite(write)
   local count = 0
   local running = false
@@ -54,7 +30,6 @@ function bufferWrite(write)
       buffer = {}
     end
   end
-
   return function(data)
     count = count + 1
     buffer[count] = data
@@ -73,8 +48,8 @@ function exports.server(opts, handler)
       return assert(socket:write(data, function() end))
     end
     local buffer = bufferWrite(tmp_write)
-    local read = wrapReader(codec.decoder, old_read)
-    local write = wrapWriter(codec.encoder, buffer)
+    local read = wrap.reader(codec.decoder, old_read)
+    local write = wrap.writer(codec.encoder, buffer)
     handler(read, write, socket, old_read, buffer)
   end)
 end
